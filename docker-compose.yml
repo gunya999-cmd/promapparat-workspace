@@ -1,0 +1,51 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: promapparat_db
+    environment:
+      POSTGRES_DB: promapparat
+      POSTGRES_USER: promapparat
+      POSTGRES_PASSWORD: promapparat_local_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - promapparat_pgdata:/var/lib/postgresql/data
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U promapparat -d promapparat"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    container_name: promapparat_backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://promapparat:promapparat_local_password@db:5432/promapparat
+      APP_ENV: local
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app
+      - ./uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    container_name: promapparat_frontend
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/vite.config.js:/app/vite.config.js
+    depends_on:
+      - backend
+
+volumes:
+  promapparat_pgdata:
