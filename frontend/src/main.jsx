@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AlertTriangle, CheckCircle2, Clock3, FileText, Filter, Plus, Save, Search, Trash2, X, Zap } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock3, FileText, Filter, Plus, Save, Search, Trash2, X, Zap, ClipboardList, PackageCheck } from 'lucide-react';
 import './styles.css';
 
-const STORAGE_KEY = 'promapparat_workspace_sprint3';
+const STORAGE_KEY = 'promapparat_workspace_sprint4';
 const SOURCES = ['Тендер', 'Сайт', 'Холодный звонок', 'Повторный клиент', 'Email', 'Другое'];
 const WORK_STATES = ['Новая', 'Анализ', 'Решение участвовать', 'Расчет', 'Ожидаем ТКП', 'КП готовится', 'КП отправлено', 'Переговоры', 'Договор', 'Производство', 'Отгрузка', 'Закрыто успешно', 'Закрыто проиграно', 'Архив'];
 const POSITION_STATES = ['Не начато', 'Нужен поставщик', 'Запрос отправлен', 'Ожидаем ТКП', 'ТКП получено', 'Цена рассчитана', 'В КП', 'Заказано', 'В производстве', 'Готово досрочно', 'Готово', 'Частично отгружено', 'Отгружено', 'Закрыто'];
@@ -131,7 +131,7 @@ function WorkModal({ onClose, onSave }) {
   </form></div>
 }
 
-function PositionTable({ work, data, setData }) {
+function PositionTable({ work, data, setData, selectedPositionId, setSelectedPositionId }) {
   const [filter, setFilter] = useState('all');
   const [draft, setDraft] = useState({ group: '', name: '', qty: 1, unit: 'шт' });
   const suppliers = data.suppliers;
@@ -158,7 +158,7 @@ function PositionTable({ work, data, setData }) {
     <div className="toolbar"><select value={filter} onChange={(e)=>setFilter(e.target.value)}><option value="all">Все позиции</option><option value="нет поставщика">Без поставщика</option><option value="нет закупки">Без закупки</option><option value="нет продажи">Без продажи</option><option value="нет ТКП">Без ТКП</option><option value="низкая маржа">Низкая маржа</option></select><button onClick={()=>setData(demoData())}>Сбросить демо</button><button disabled>Импорт Excel позже</button><button disabled>КП позже</button></div>
     <div className="add-row"><input value={draft.group} onChange={(e)=>setDraft({...draft, group:e.target.value})} placeholder="Группа"/><input className="grow" value={draft.name} onChange={(e)=>setDraft({...draft, name:e.target.value})} placeholder="Новая позиция"/><input type="number" value={draft.qty} onChange={(e)=>setDraft({...draft, qty:e.target.value})}/><input value={draft.unit} onChange={(e)=>setDraft({...draft, unit:e.target.value})}/><button className="primary" onClick={addPosition}><Plus size={16}/> Добавить</button></div>
     <div className="table-wrap"><table><thead><tr><th>№</th><th>Группа</th><th>Позиция</th><th>Кол-во</th><th>Поставщик</th><th>Закупка</th><th>Продажа</th><th>Маржа</th><th>Срок</th><th>Отгрузка</th><th>Статус</th><th>Готово</th><th>Риски</th><th></th></tr></thead><tbody>
-      {positions.map((p)=><tr key={p.id} className={p.warnings.length?'has-risk':''}>
+      {positions.map((p)=><tr key={p.id} onClick={()=>setSelectedPositionId(p.id)} className={`${p.warnings.length?'has-risk':''} ${selectedPositionId===p.id?'selected-row':''}`}>
         <td>{p.rowNo}</td>
         <td><input value={p.group || ''} onChange={(e)=>patchPosition(p.id,{group:e.target.value})}/></td>
         <td className="wide"><input value={p.name} onChange={(e)=>patchPosition(p.id,{name:e.target.value})}/></td>
@@ -172,16 +172,84 @@ function PositionTable({ work, data, setData }) {
         <td><select value={p.status} onChange={(e)=>patchPosition(p.id,{status:e.target.value})}>{POSITION_STATES.map((s)=><option key={s}>{s}</option>)}</select></td>
         <td><div className="mini"><i style={{width:`${p.progress}%`}}/></div><span>{p.progress}%</span></td>
         <td className="warnings">{p.warnings.slice(0,3).map((w)=><button key={w} onClick={()=>w==='нет ТКП' && addTkp(p)} className="tag">{w}</button>)}</td>
-        <td><button className="icon danger" onClick={()=>deletePosition(p.id)}><Trash2 size={15}/></button></td>
+        <td><button className="icon danger" onClick={(e)=>{e.stopPropagation(); deletePosition(p.id)}}><Trash2 size={15}/></button></td>
       </tr>)}
     </tbody></table></div>
   </section>
 }
 
-function Assistant({ work }) {
+
+function PositionCard({ work, position, data, setData, onClose }) {
+  if (!position) return null;
+  const suppliers = data.suppliers;
+  const docs = data.documents.filter((d) => d.positionId === position.id);
+  const supplier = suppliers.find((s) => s.id === position.supplierId);
+  const patchPosition = (patch) => setData((d) => ({ ...d, positions: d.positions.map((p) => p.id === position.id ? { ...p, ...patch } : p) }));
+  const addDoc = (type) => setData((d) => ({ ...d, documents: [...d.documents, { id: uid(), workId: work.id, positionId: position.id, type, name: `${type} · ${position.name}` }] }));
+  const duplicate = () => {
+    const rowNo = Math.max(0, ...data.positions.filter((p)=>p.workId===work.id).map((p)=>p.rowNo || 0)) + 1;
+    setData((d)=>({ ...d, positions: [...d.positions, { ...position, id: uid(), rowNo, name: `${position.name} — копия`, status: 'Не начато' }] }));
+  };
+  const setRecommendedSale = () => {
+    const purchase = Number(position.purchasePrice || 0);
+    if (!purchase) return;
+    patchPosition({ salePrice: Math.ceil(purchase / 0.82) });
+  };
+
+  return <section className="position-card">
+    <div className="card-head">
+      <div><span className="eyebrow">Позиция №{position.rowNo}</span><h2>{position.name || 'Без названия'}</h2></div>
+      <button className="icon" onClick={onClose}><X size={16}/></button>
+    </div>
+
+    <div className="scoreline"><div><b>{position.progress}%</b><span>готовность</span></div><div><b>{pct(position.margin)}</b><span>маржа</span></div></div>
+
+    <div className="detail-grid">
+      <label>Группа<input value={position.group || ''} onChange={(e)=>patchPosition({group:e.target.value})}/></label>
+      <label>Количество<input type="number" value={position.qty || ''} onChange={(e)=>patchPosition({qty:e.target.value})}/></label>
+      <label>Ед. изм.<input value={position.unit || ''} onChange={(e)=>patchPosition({unit:e.target.value})}/></label>
+      <label>Статус<select value={position.status} onChange={(e)=>patchPosition({status:e.target.value})}>{POSITION_STATES.map((s)=><option key={s}>{s}</option>)}</select></label>
+    </div>
+
+    <label className="full-label">Техническое описание<textarea value={position.description || ''} onChange={(e)=>patchPosition({description:e.target.value})} placeholder="DN, PN, материал, среда, температура, требования"/></label>
+
+    <div className="section-title"><ClipboardList size={16}/> Поставщик и ТКП</div>
+    <div className="detail-grid">
+      <label>Поставщик<select value={position.supplierId || ''} onChange={(e)=>patchPosition({supplierId:e.target.value})}><option value="">—</option>{suppliers.map((s)=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
+      <label>Производитель<input value={position.manufacturer || ''} onChange={(e)=>patchPosition({manufacturer:e.target.value})}/></label>
+      <label>Контакт<input value={position.supplierContact || supplier?.contact || ''} onChange={(e)=>patchPosition({supplierContact:e.target.value})}/></label>
+      <label>Артикул / модель<input value={position.article || ''} onChange={(e)=>patchPosition({article:e.target.value})}/></label>
+    </div>
+
+    <div className="section-title"><PackageCheck size={16}/> Цена, сроки, отгрузка</div>
+    <div className="detail-grid">
+      <label>Закупка<input type="number" value={position.purchasePrice || ''} onChange={(e)=>patchPosition({purchasePrice:e.target.value})}/></label>
+      <label>Продажа<input type="number" value={position.salePrice || ''} onChange={(e)=>patchPosition({salePrice:e.target.value})}/></label>
+      <label>Изготовление, дней<input type="number" value={position.productionDays || ''} onChange={(e)=>patchPosition({productionDays:e.target.value})}/></label>
+      <label>Доставка, дней<input type="number" value={position.deliveryDays || ''} onChange={(e)=>patchPosition({deliveryDays:e.target.value})}/></label>
+      <label>План готовности<input type="date" value={position.readinessDate || ''} onChange={(e)=>patchPosition({readinessDate:e.target.value})}/></label>
+      <label>План отгрузки<input type="date" value={position.deliveryDate || ''} onChange={(e)=>patchPosition({deliveryDate:e.target.value})}/></label>
+      <label>Город отгрузки<input value={position.shipmentPlace || ''} onChange={(e)=>patchPosition({shipmentPlace:e.target.value})}/></label>
+      <label>Адрес / склад<input value={position.shipmentAddress || ''} onChange={(e)=>patchPosition({shipmentAddress:e.target.value})}/></label>
+    </div>
+    <label className="full-label">Условия оплаты<textarea value={position.paymentTerms || ''} onChange={(e)=>patchPosition({paymentTerms:e.target.value})} placeholder="Предоплата, постоплата, отсрочка, условия поставщика"/></label>
+
+    <div className="doc-row"><button onClick={()=>addDoc('ТКП')}>+ ТКП</button><button onClick={()=>addDoc('Паспорт')}>+ Паспорт</button><button onClick={()=>addDoc('Сертификат')}>+ Сертификат</button></div>
+    <div className="docs-list">{docs.length ? docs.map((d)=><span key={d.id}>{d.type}: {d.name}</span>) : <em>Документы по позиции не добавлены</em>}</div>
+
+    <div className="helper-box">
+      <b>Подсказки</b>
+      {position.warnings.length ? position.warnings.map((w)=><p key={w}>⚠ {w}</p>) : <p>✓ Позиция заполнена без критичных рисков</p>}
+    </div>
+    <div className="card-actions"><button onClick={setRecommendedSale}>Рассчитать продажу с маржей 18%</button><button onClick={duplicate}>Копировать позицию</button></div>
+  </section>
+}
+
+function Assistant({ work, selectedPosition, data, setData, setSelectedPositionId }) {
   if (!work) return <aside className="assistant"><p>Выберите работу</p></aside>;
   const risks = work.risks.slice(0, 8);
   return <aside className="assistant">
+    {selectedPosition && <PositionCard work={work} position={selectedPosition} data={data} setData={setData} onClose={()=>setSelectedPositionId(null)}/>}
     <section className="action"><div className="section-title"><Zap size={16}/> Следующее действие</div><h2>{work.nextAction}</h2><button className="primary full">Выполнить</button></section>
     <section><div className="section-title"><AlertTriangle size={16}/> Риски</div>{risks.length ? risks.map((r)=><div className="risk" key={r}>{r}</div>) : <div className="ok"><CheckCircle2 size={16}/> Рисков нет</div>}</section>
     <section><div className="section-title"><Clock3 size={16}/> Дедлайн</div><b>{work.deadline || '—'}</b><p>{work.manager}</p></section>
@@ -197,6 +265,7 @@ function App() {
   const [source, setSource] = useState('all');
   const [urgency, setUrgency] = useState('all');
   const [showModal, setShowModal] = useState(false);
+  const [selectedPositionId, setSelectedPositionId] = useState(null);
 
   const works = useMemo(() => data.works.map((w)=>calcWork(w, data.positions, data.documents)), [data]);
   const filteredWorks = works.filter((w) => {
@@ -205,6 +274,9 @@ function App() {
     return (!q || `${w.customer} ${w.title} ${w.code}`.toLowerCase().includes(q)) && (source === 'all' || w.source === source) && (urgency === 'all' || (urgency === 'hot' && days <= 1) || (urgency === 'week' && days <= 7));
   });
   const active = works.find((w)=>w.id===activeId) || works[0];
+  const selectedPosition = active?.positions.find((p)=>p.id===selectedPositionId) || null;
+
+  useEffect(() => { setSelectedPositionId(null); }, [activeId]);
 
   const createWork = (f) => {
     const n = data.works.length + 1;
@@ -216,8 +288,8 @@ function App() {
 
   return <div className="app">
     <WorkRail works={filteredWorks} activeId={active?.id} setActiveId={setActiveId} query={query} setQuery={setQuery} urgency={urgency} setUrgency={setUrgency} source={source} setSource={setSource} onNewWork={()=>setShowModal(true)}/>
-    {active ? <PositionTable work={active} data={data} setData={setData}/> : <main className="empty">Нет работ</main>}
-    <Assistant work={active}/>
+    {active ? <PositionTable work={active} data={data} setData={setData} selectedPositionId={selectedPositionId} setSelectedPositionId={setSelectedPositionId}/> : <main className="empty">Нет работ</main>}
+    <Assistant work={active} selectedPosition={selectedPosition} data={data} setData={setData} setSelectedPositionId={setSelectedPositionId}/>
     {showModal && <WorkModal onClose={()=>setShowModal(false)} onSave={createWork}/>}  
   </div>
 }
