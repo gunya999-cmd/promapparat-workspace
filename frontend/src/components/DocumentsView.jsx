@@ -1,6 +1,7 @@
 import React,{useMemo,useRef,useState}from'react';
 import{AlertTriangle,File,FileCheck2,FileSpreadsheet,FileText,Image,Paperclip,Search,Trash2,UploadCloud}from'lucide-react';
 import{uid}from'../domain/workspace.js';
+import{recordActivity}from'../domain/activity.js';
 import'./documents.css';
 
 const TYPES=['ТЗ','Спецификация','ТКП','Опросный лист','Паспорт','Сертификат','КП','Договор','Счет','Отгрузочные документы','Прочее'];
@@ -16,41 +17,23 @@ export function DocumentsView({work,data,setData}){
  const[selectedType,setSelectedType]=useState('ТЗ');
  const[required,setRequired]=useState(false);
  const[dragging,setDragging]=useState(false);
- const docs=(data.documents||[]).filter(doc=>doc.workId===work.id);
- const missingRequired=REQUIRED.filter(item=>!docs.some(doc=>doc.type===item));
- const filtered=useMemo(()=>docs.filter(doc=>{
-  const hay=`${doc.name} ${doc.type}`.toLowerCase();
-  return(!query||hay.includes(query.toLowerCase()))&&(type==='Все типы'||doc.type===type);
- }),[docs,query,type]);
+ const docs=(data.documents||[]).filter(document=>document.workId===work.id);
+ const missingRequired=REQUIRED.filter(item=>!docs.some(document=>document.type===item));
+ const filtered=useMemo(()=>docs.filter(document=>{const hay=`${document.name} ${document.type}`.toLowerCase();return(!query||hay.includes(query.toLowerCase()))&&(type==='Все типы'||document.type===type)}),[docs,query,type]);
  const addFiles=files=>{
   const list=[...files];if(!list.length)return;
   const positionId=target==='work'?null:target;
   const additions=list.map(file=>({id:uid(),workId:work.id,positionId,type:selectedType,name:file.name,size:file.size,mime:file.type||'',uploadedAt:new Date().toISOString(),required}));
-  setData(current=>({...current,documents:[...(current.documents||[]),...additions]}));
+  const position=work.positions.find(item=>item.id===positionId);
+  setData(current=>recordActivity({...current,documents:[...(current.documents||[]),...additions]},{workId:work.id,positionId,type:'document',title:list.length===1?'Добавлен документ':`Добавлены документы: ${list.length}`,detail:`${selectedType} · ${list.map(file=>file.name).join(', ')}${position?` · позиция №${position.rowNo}`:''}`,author:work.manager||'Менеджер'}));
  };
- const remove=id=>setData(current=>({...current,documents:(current.documents||[]).filter(doc=>doc.id!==id)}));
+ const remove=document=>setData(current=>recordActivity({...current,documents:(current.documents||[]).filter(item=>item.id!==document.id)},{workId:work.id,positionId:document.positionId||null,type:'document',title:'Удален документ',detail:`${document.type} · ${document.name}`,author:work.manager||'Менеджер'}));
  return <section className="documents-view">
-  <div className="documents-summary">
-   <div><span>Документы</span><b>{docs.length}</b></div>
-   <div><span>Обязательных не хватает</span><b className={missingRequired.length?'bad':'good'}>{missingRequired.length}</b></div>
-   <div><span>Привязано к позициям</span><b>{docs.filter(doc=>doc.positionId).length}</b></div>
-  </div>
+  <div className="documents-summary"><div><span>Документы</span><b>{docs.length}</b></div><div><span>Обязательных не хватает</span><b className={missingRequired.length?'bad':'good'}>{missingRequired.length}</b></div><div><span>Привязано к позициям</span><b>{docs.filter(document=>document.positionId).length}</b></div></div>
   {missingRequired.length>0&&<div className="documents-alert"><AlertTriangle/><div><b>Не хватает обязательных документов</b><p>{missingRequired.join(', ')}</p></div></div>}
-  <div className="documents-controls">
-   <label><span>Тип</span><select value={selectedType} onChange={e=>setSelectedType(e.target.value)}>{TYPES.map(item=><option key={item}>{item}</option>)}</select></label>
-   <label><span>Привязка</span><select value={target} onChange={e=>setTarget(e.target.value)}><option value="work">Вся работа</option>{work.positions.map(position=><option key={position.id} value={position.id}>Позиция №{position.rowNo}: {position.name}</option>)}</select></label>
-   <label className="required-check"><input type="checkbox" checked={required} onChange={e=>setRequired(e.target.checked)}/><span>Обязательный</span></label>
-  </div>
-  <div className={`drop-zone ${dragging?'dragging':''}`} onDragOver={e=>{e.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);addFiles(e.dataTransfer.files)}} onClick={()=>inputRef.current?.click()}>
-   <UploadCloud/><b>Перетащите документы сюда</b><span>или нажмите для выбора файлов</span><small>На Cloudflare сохраняются только карточки файлов. Содержимое будет храниться на локальном сервере.</small>
-   <input ref={inputRef} type="file" multiple hidden onChange={e=>addFiles(e.target.files)}/>
-  </div>
-  <div className="document-toolbar"><label className="document-search"><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск по названию"/></label><select value={type} onChange={e=>setType(e.target.value)}><option>Все типы</option>{TYPES.map(item=><option key={item}>{item}</option>)}</select></div>
-  <div className="documents-list">
-   {filtered.length?filtered.map(doc=>{
-    const position=work.positions.find(item=>item.id===doc.positionId);
-    return <article className="document-card" key={doc.id}><div className="document-icon">{iconFor(doc.name)}</div><div className="document-main"><div className="document-title"><b>{doc.name}</b>{doc.required&&<span><FileCheck2/>обязательный</span>}</div><p>{doc.type} · {formatSize(doc.size)} · {new Date(doc.uploadedAt).toLocaleString('ru-RU')}</p><small>{position?`Позиция №${position.rowNo}: ${position.name}`:'Вся работа'}</small></div><button className="document-delete" onClick={()=>remove(doc.id)}><Trash2/></button></article>
-   }):<div className="documents-empty"><Paperclip/><b>Документы не найдены</b><span>Добавьте первый файл или измените фильтр.</span></div>}
-  </div>
- </section>
+  <div className="documents-controls"><label><span>Тип</span><select value={selectedType} onChange={event=>setSelectedType(event.target.value)}>{TYPES.map(item=><option key={item}>{item}</option>)}</select></label><label><span>Привязка</span><select value={target} onChange={event=>setTarget(event.target.value)}><option value="work">Вся работа</option>{work.positions.map(position=><option key={position.id} value={position.id}>Позиция №{position.rowNo}: {position.name}</option>)}</select></label><label className="required-check"><input type="checkbox" checked={required} onChange={event=>setRequired(event.target.checked)}/><span>Обязательный</span></label></div>
+  <div className={`drop-zone ${dragging?'dragging':''}`} onDragOver={event=>{event.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={event=>{event.preventDefault();setDragging(false);addFiles(event.dataTransfer.files)}} onClick={()=>inputRef.current?.click()}><UploadCloud/><b>Перетащите документы сюда</b><span>или нажмите для выбора файлов</span><small>На Cloudflare сохраняются только карточки файлов. Содержимое будет храниться на локальном сервере.</small><input ref={inputRef} type="file" multiple hidden onChange={event=>addFiles(event.target.files)}/></div>
+  <div className="document-toolbar"><label className="document-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Поиск по названию"/></label><select value={type} onChange={event=>setType(event.target.value)}><option>Все типы</option>{TYPES.map(item=><option key={item}>{item}</option>)}</select></div>
+  <div className="documents-list">{filtered.length?filtered.map(document=>{const position=work.positions.find(item=>item.id===document.positionId);return <article className="document-card" key={document.id}><div className="document-icon">{iconFor(document.name)}</div><div className="document-main"><div className="document-title"><b>{document.name}</b>{document.required&&<span><FileCheck2/>обязательный</span>}</div><p>{document.type} · {formatSize(document.size)} · {new Date(document.uploadedAt).toLocaleString('ru-RU')}</p><small>{position?`Позиция №${position.rowNo}: ${position.name}`:'Вся работа'}</small></div><button className="document-delete" onClick={()=>remove(document)}><Trash2/></button></article>}):<div className="documents-empty"><Paperclip/><b>Документы не найдены</b><span>Добавьте первый файл или измените фильтр.</span></div>}</div>
+ </section>;
 }
