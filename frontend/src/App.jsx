@@ -29,7 +29,7 @@ export default function App(){
   {visibleSection==='works'&&active&&<><WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser}/><PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/></>}
   {visibleSection==='suppliers'&&<SuppliersView data={data} setData={setData} currentUser={currentUser}/>} 
   {visibleSection==='formulas'&&isAdmin&&<FormulaDashboard data={data} setData={setData} currentUser={currentUser}/>} 
-  {visibleSection==='system'&&isAdmin&&<SystemSettings data={data} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
+  {visibleSection==='system'&&isAdmin&&<SystemSettings data={data} setData={setData} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
   {showNew&&<NewWorkModal onClose={()=>setShowNew(false)} onSave={createWork}/>} 
  </div>;
 }
