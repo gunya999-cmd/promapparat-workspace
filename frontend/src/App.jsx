@@ -6,10 +6,11 @@ import{WorkspaceView}from'./components/WorkspaceView.jsx';
 import{PositionPanel}from'./components/PositionPanel.jsx';
 import{NewWorkModal}from'./components/NewWorkModal.jsx';
 import{SuppliersView}from'./components/SuppliersView.jsx';
+import{DashboardView}from'./components/DashboardView.jsx';
 
 export default function App(){
  const{data,setData}=useWorkspace();
- const[section,setSection]=useState('works');
+ const[section,setSection]=useState('dashboard');
  const[activeId,setActiveId]=useState('w1');
  const[selectedId,setSelectedId]=useState(null);
  const[query,setQuery]=useState('');
@@ -18,10 +19,14 @@ export default function App(){
  const filtered=works.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
  const active=works.find(work=>work.id===activeId)||works[0];
  const selected=active?.positions.find(position=>position.id===selectedId)||null;
- const createWork=form=>{const work={id:uid(),code:`PA-2026-${String(data.works.length+1).padStart(4,'0')}`,...form};setData(current=>({...current,works:[work,...current.works]}));setActiveId(work.id);setShowNew(false)};
- return <div className={`app ${section==='suppliers'?'app-wide':''}`}>
-  <WorkRail works={filtered} activeId={active?.id} onSelect={id=>{setActiveId(id);setSelectedId(null)}} onNew={()=>setShowNew(true)} query={query} setQuery={setQuery} section={section} setSection={value=>{setSection(value);setSelectedId(null)}}/>
-  {section==='works'?<><WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId}/><PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)}/></>:<SuppliersView data={data} setData={setData}/>} 
+ const createWork=form=>{const work={id:uid(),code:`PA-2026-${String(data.works.length+1).padStart(4,'0')}`,...form};setData(current=>({...current,works:[work,...current.works]}));setActiveId(work.id);setSection('works');setShowNew(false)};
+ const openWork=id=>{setActiveId(id);setSelectedId(null);setSection('works')};
+ const wide=section==='suppliers'||section==='dashboard';
+ return <div className={`app ${wide?'app-wide':''}`}>
+  <WorkRail works={filtered} activeId={active?.id} onSelect={openWork} onNew={()=>setShowNew(true)} query={query} setQuery={setQuery} section={section} setSection={value=>{setSection(value);setSelectedId(null)}}/>
+  {section==='dashboard'&&<DashboardView works={works} onOpenWork={openWork}/>} 
+  {section==='works'&&<><WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId}/><PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)}/></>}
+  {section==='suppliers'&&<SuppliersView data={data} setData={setData}/>} 
   {showNew&&<NewWorkModal onClose={()=>setShowNew(false)} onSave={createWork}/>} 
  </div>
 }
