@@ -1,38 +1,26 @@
 import React,{useMemo,useRef,useState}from'react';
 import{AlertTriangle,File,FileCheck2,FileSpreadsheet,FileText,Image,Paperclip,Search,Trash2,UploadCloud}from'lucide-react';
 import{uid}from'../domain/workspace.js';
-import{recordActivity}from'../domain/activity.js';
+import{addDocumentsCommand,deleteDocumentCommand}from'../domain/commands.js';
 import'./documents.css';
 
 const TYPES=['ТЗ','Спецификация','ТКП','Опросный лист','Паспорт','Сертификат','КП','Договор','Счет','Отгрузочные документы','Прочее'];
-const REQUIRED=['ТЗ','Спецификация','КП'];
+const requirementsFor=state=>{const result=['ТЗ','Спецификация'];if(['КП готовится','КП отправлено','Переговоры','Договор','Производство','Отгрузка','Закрыто успешно'].includes(state))result.push('КП');if(['Договор','Производство','Отгрузка','Закрыто успешно'].includes(state))result.push('Договор');if(['Производство','Отгрузка','Закрыто успешно'].includes(state))result.push('Счет');return result};
 const formatSize=size=>{if(!size)return'—';if(size<1024)return`${size} Б`;if(size<1048576)return`${(size/1024).toFixed(1)} КБ`;return`${(size/1048576).toFixed(1)} МБ`};
 const iconFor=name=>{const ext=(name.split('.').pop()||'').toLowerCase();if(['xlsx','xls','csv'].includes(ext))return<FileSpreadsheet/>;if(['png','jpg','jpeg','webp'].includes(ext))return<Image/>;if(['pdf','doc','docx','txt'].includes(ext))return<FileText/>;return<File/>};
 
-export function DocumentsView({work,data,setData}){
- const inputRef=useRef(null);
- const[query,setQuery]=useState('');
- const[type,setType]=useState('Все типы');
- const[target,setTarget]=useState('work');
- const[selectedType,setSelectedType]=useState('ТЗ');
- const[required,setRequired]=useState(false);
- const[dragging,setDragging]=useState(false);
- const docs=(data.documents||[]).filter(document=>document.workId===work.id);
- const missingRequired=REQUIRED.filter(item=>!docs.some(document=>document.type===item));
+export function DocumentsView({work,data,setData,currentUser}){
+ const inputRef=useRef(null),[query,setQuery]=useState(''),[type,setType]=useState('Все типы'),[target,setTarget]=useState('work'),[selectedType,setSelectedType]=useState('ТЗ'),[required,setRequired]=useState(false),[dragging,setDragging]=useState(false),[error,setError]=useState('');
+ const docs=(data.documents||[]).filter(document=>document.workId===work.id),requiredTypes=requirementsFor(work.state),missingRequired=requiredTypes.filter(item=>!docs.some(document=>document.type===item));
  const filtered=useMemo(()=>docs.filter(document=>{const hay=`${document.name} ${document.type}`.toLowerCase();return(!query||hay.includes(query.toLowerCase()))&&(type==='Все типы'||document.type===type)}),[docs,query,type]);
- const addFiles=files=>{
-  const list=[...files];if(!list.length)return;
-  const positionId=target==='work'?null:target;
-  const additions=list.map(file=>({id:uid(),workId:work.id,positionId,type:selectedType,name:file.name,size:file.size,mime:file.type||'',uploadedAt:new Date().toISOString(),required}));
-  const position=work.positions.find(item=>item.id===positionId);
-  setData(current=>recordActivity({...current,documents:[...(current.documents||[]),...additions]},{workId:work.id,positionId,type:'document',title:list.length===1?'Добавлен документ':`Добавлены документы: ${list.length}`,detail:`${selectedType} · ${list.map(file=>file.name).join(', ')}${position?` · позиция №${position.rowNo}`:''}`,author:work.manager||'Менеджер'}));
- };
- const remove=document=>setData(current=>recordActivity({...current,documents:(current.documents||[]).filter(item=>item.id!==document.id)},{workId:work.id,positionId:document.positionId||null,type:'document',title:'Удален документ',detail:`${document.type} · ${document.name}`,author:work.manager||'Менеджер'}));
+ const addFiles=files=>{const list=[...files];if(!list.length)return;try{const positionId=target==='work'?null:target,additions=list.map(file=>({id:uid(),workId:work.id,positionId,type:selectedType,name:file.name,size:file.size,mime:file.type||'',uploadedAt:new Date().toISOString(),required:required||requiredTypes.includes(selectedType)}));setData(current=>addDocumentsCommand(current,work.id,additions,currentUser));setError('')}catch(exception){setError(exception?.message||'Не удалось добавить документы')}finally{if(inputRef.current)inputRef.current.value=''}};
+ const remove=document=>{if(!window.confirm(`Удалить документ «${document.name}»?`))return;try{setData(current=>deleteDocumentCommand(current,document.id,currentUser));setError('')}catch(exception){setError(exception?.message||'Не удалось удалить документ')}};
  return <section className="documents-view">
+  {error&&<div className="inline-error">{error}</div>}
   <div className="documents-summary"><div><span>Документы</span><b>{docs.length}</b></div><div><span>Обязательных не хватает</span><b className={missingRequired.length?'bad':'good'}>{missingRequired.length}</b></div><div><span>Привязано к позициям</span><b>{docs.filter(document=>document.positionId).length}</b></div></div>
-  {missingRequired.length>0&&<div className="documents-alert"><AlertTriangle/><div><b>Не хватает обязательных документов</b><p>{missingRequired.join(', ')}</p></div></div>}
-  <div className="documents-controls"><label><span>Тип</span><select value={selectedType} onChange={event=>setSelectedType(event.target.value)}>{TYPES.map(item=><option key={item}>{item}</option>)}</select></label><label><span>Привязка</span><select value={target} onChange={event=>setTarget(event.target.value)}><option value="work">Вся работа</option>{work.positions.map(position=><option key={position.id} value={position.id}>Позиция №{position.rowNo}: {position.name}</option>)}</select></label><label className="required-check"><input type="checkbox" checked={required} onChange={event=>setRequired(event.target.checked)}/><span>Обязательный</span></label></div>
-  <div className={`drop-zone ${dragging?'dragging':''}`} onDragOver={event=>{event.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={event=>{event.preventDefault();setDragging(false);addFiles(event.dataTransfer.files)}} onClick={()=>inputRef.current?.click()}><UploadCloud/><b>Перетащите документы сюда</b><span>или нажмите для выбора файлов</span><small>На Cloudflare сохраняются только карточки файлов. Содержимое будет храниться на локальном сервере.</small><input ref={inputRef} type="file" multiple hidden onChange={event=>addFiles(event.target.files)}/></div>
+  {missingRequired.length>0&&<div className="documents-alert"><AlertTriangle/><div><b>Для этапа «{work.state}» не хватает документов</b><p>{missingRequired.join(', ')}</p></div></div>}
+  <div className="documents-controls"><label><span>Тип</span><select value={selectedType} onChange={event=>setSelectedType(event.target.value)}>{TYPES.map(item=><option key={item}>{item}</option>)}</select></label><label><span>Привязка</span><select value={target} onChange={event=>setTarget(event.target.value)}><option value="work">Вся работа</option>{work.positions.map(position=><option key={position.id} value={position.id}>Позиция №{position.rowNo}: {position.name}</option>)}</select></label><label className="required-check"><input type="checkbox" checked={required} onChange={event=>setRequired(event.target.checked)}/><span>Обязательный дополнительно</span></label></div>
+  <div className={`drop-zone ${dragging?'dragging':''}`} onDragOver={event=>{event.preventDefault();setDragging(true)}} onDragLeave={()=>setDragging(false)} onDrop={event=>{event.preventDefault();setDragging(false);addFiles(event.dataTransfer.files)}} onClick={()=>inputRef.current?.click()}><UploadCloud/><b>Перетащите документы сюда</b><span>или нажмите для выбора файлов</span><small>В облачной демо-версии сохраняются карточки файлов. Сами файлы будут храниться на локальном сервере.</small><input ref={inputRef} type="file" multiple hidden onChange={event=>addFiles(event.target.files)}/></div>
   <div className="document-toolbar"><label className="document-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Поиск по названию"/></label><select value={type} onChange={event=>setType(event.target.value)}><option>Все типы</option>{TYPES.map(item=><option key={item}>{item}</option>)}</select></div>
   <div className="documents-list">{filtered.length?filtered.map(document=>{const position=work.positions.find(item=>item.id===document.positionId);return <article className="document-card" key={document.id}><div className="document-icon">{iconFor(document.name)}</div><div className="document-main"><div className="document-title"><b>{document.name}</b>{document.required&&<span><FileCheck2/>обязательный</span>}</div><p>{document.type} · {formatSize(document.size)} · {new Date(document.uploadedAt).toLocaleString('ru-RU')}</p><small>{position?`Позиция №${position.rowNo}: ${position.name}`:'Вся работа'}</small></div><button className="document-delete" onClick={()=>remove(document)}><Trash2/></button></article>}):<div className="documents-empty"><Paperclip/><b>Документы не найдены</b><span>Добавьте первый файл или измените фильтр.</span></div>}</div>
  </section>;
