@@ -1,6 +1,7 @@
 import React,{useMemo,useRef,useState}from'react';
 import{AlertTriangle,File,FileCheck2,FileSpreadsheet,FileText,Image,Paperclip,Search,Trash2,UploadCloud}from'lucide-react';
 import{uid}from'../domain/workspace.js';
+import'./documents.css';
 
 const TYPES=['ТЗ','Спецификация','ТКП','Опросный лист','Паспорт','Сертификат','КП','Договор','Счет','Отгрузочные документы','Прочее'];
 const REQUIRED=['ТЗ','Спецификация','КП'];
