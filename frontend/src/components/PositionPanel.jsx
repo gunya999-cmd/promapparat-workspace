@@ -2,6 +2,9 @@ import React,{useEffect,useState}from'react';
 import{Phone,Plus,Trash2,X}from'lucide-react';
 import{pct}from'../domain/workspace.js';
 import{addBatchCommand,addOfferCommand,deleteBatchCommand,deleteOfferCommand,selectOfferCommand,updateBatchCommand,updateOfferCommand,updatePositionCommand}from'../domain/commands.js';
+import{useUnsavedWarning}from'../hooks/useUnsavedWarning.js';
+
+const different=(left,right)=>String(left??'')!==String(right??'');
 
 export function PositionPanel({position,data,setData,onClose,currentUser}){
  const[error,setError]=useState(''),[positionDraft,setPositionDraft]=useState({}),[offerDrafts,setOfferDrafts]=useState({}),[batchDrafts,setBatchDrafts]=useState({});
@@ -9,6 +12,8 @@ export function PositionPanel({position,data,setData,onClose,currentUser}){
  useEffect(()=>{if(raw)setPositionDraft({salePrice:raw.salePrice??'',logisticsCost:raw.logisticsCost??0,otherCosts:raw.otherCosts??0,vatRate:raw.vatRate??20})},[position?.id]);
  useEffect(()=>{if(raw)setOfferDrafts(Object.fromEntries((raw.offers||[]).map(offer=>[offer.id,{...offer}])))} ,[position?.id,(raw?.offers||[]).map(offer=>offer.id).join(',')]);
  useEffect(()=>{if(raw)setBatchDrafts(Object.fromEntries((raw.batches||[]).map(batch=>[batch.id,{...batch}])))} ,[position?.id,(raw?.batches||[]).map(batch=>batch.id).join(',')]);
+ const dirty=!!raw&&(['salePrice','logisticsCost','otherCosts','vatRate'].some(field=>different(positionDraft[field],raw[field]))||(raw.offers||[]).some(offer=>['price','productionDays','deliveryDays','shipmentPlace','paymentTerms'].some(field=>different(offerDrafts[offer.id]?.[field],offer[field])))||(raw.batches||[]).some(batch=>['qty','readyDate','shipDate','place'].some(field=>different(batchDrafts[batch.id]?.[field],batch[field]))));
+ useUnsavedWarning(dirty);
  if(!position||!raw)return <aside className="assistant"><section><h3>Выберите позицию</h3><p>Справа появятся предложения поставщиков и партии отгрузки.</p></section></aside>;
  const run=operation=>{try{setData(current=>operation(current));setError('')}catch(exception){setError(exception?.message||'Не удалось выполнить действие')}};
  const commitPosition=field=>run(current=>updatePositionCommand(current,raw.id,{[field]:positionDraft[field]},currentUser));
@@ -20,8 +25,9 @@ export function PositionPanel({position,data,setData,onClose,currentUser}){
  const removeOffer=offer=>{if(window.confirm('Удалить предложение поставщика?'))run(current=>deleteOfferCommand(current,raw.id,offer.id,currentUser))};
  const addBatch=()=>run(current=>addBatchCommand(current,raw.id,currentUser));
  const removeBatch=batch=>{if(window.confirm('Удалить партию?'))run(current=>deleteBatchCommand(current,raw.id,batch.id,currentUser))};
+ const close=()=>{if(dirty&&!window.confirm('Есть несохраненные изменения. Закрыть карточку?'))return;onClose()};
  return <aside className="assistant position-drawer">
-  <div className="panel-head"><div><span>Позиция №{position.rowNo}</span><h2>{position.name}</h2></div><button onClick={onClose}><X/></button></div>
+  <div className="panel-head"><div><span>Позиция №{position.rowNo}</span><h2>{position.name}</h2></div><button onClick={close}><X/></button></div>
   {error&&<div className="inline-error">{error}</div>}
   <div className="scoreline"><div><b>{position.progress}%</b><span>готовность</span></div><div><b>{pct(position.grossMargin)}</b><span>маржа</span></div><div><b>{pct(position.markup)}</b><span>наценка</span></div></div>
   <section><div className="section-head"><h3>Предложения поставщиков</h3><button onClick={addOffer}><Plus/>Добавить</button></div>{(raw.offers||[]).map((offer,index)=>{const draft=offerDrafts[offer.id]||offer,supplier=data.suppliers.find(item=>item.id===offer.supplierId);return <div className={`offer-card ${offer.selected?'chosen':''}`} key={offer.id}>
