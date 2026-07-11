@@ -1,5 +1,6 @@
 import React,{useMemo,useState}from'react';
 import{calculateWork,uid}from'./domain/workspace.js';
+import{recordActivity}from'./domain/activity.js';
 import{useWorkspace}from'./store/useWorkspace.js';
 import{WorkRail}from'./components/WorkRail.jsx';
 import{WorkspaceView}from'./components/WorkspaceView.jsx';
@@ -19,7 +20,11 @@ export default function App(){
  const filtered=works.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
  const active=works.find(work=>work.id===activeId)||works[0];
  const selected=active?.positions.find(position=>position.id===selectedId)||null;
- const createWork=form=>{const work={id:uid(),code:`PA-2026-${String(data.works.length+1).padStart(4,'0')}`,...form};setData(current=>({...current,works:[work,...current.works]}));setActiveId(work.id);setSection('works');setShowNew(false)};
+ const createWork=form=>{
+  const work={id:uid(),code:`PA-2026-${String(data.works.length+1).padStart(4,'0')}`,...form};
+  setData(current=>recordActivity({...current,works:[work,...current.works]},{workId:work.id,type:'work',title:work.source==='Тендер'?'Создан тендер':'Создана заявка',detail:`${work.customer} — ${work.title} · источник: ${work.source}`,author:work.manager||'Менеджер'}));
+  setActiveId(work.id);setSection('works');setShowNew(false);
+ };
  const openWork=id=>{setActiveId(id);setSelectedId(null);setSection('works')};
  const wide=section==='suppliers'||section==='dashboard';
  return <div className={`app ${wide?'app-wide':''}`}>
@@ -28,5 +33,5 @@ export default function App(){
   {section==='works'&&<><WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId}/><PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)}/></>}
   {section==='suppliers'&&<SuppliersView data={data} setData={setData}/>} 
   {showNew&&<NewWorkModal onClose={()=>setShowNew(false)} onSave={createWork}/>} 
- </div>
+ </div>;
 }
