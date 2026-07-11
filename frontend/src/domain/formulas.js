@@ -94,7 +94,8 @@ export function evaluateFormula(formula){
    return literal(inputs.get(key)??inputs.get(address.toUpperCase()));
   });
   expression=expression.replace(/\bTRUE\b/gi,'true').replace(/\bFALSE\b/gi,'false');
-  expression=expression.replace(/(?<![<>=!])=(?!=)/g,'==');
+  for(const name of FUNCTION_NAMES)expression=expression.replace(new RegExp(`\\b${name}\\s*\\(`,'gi'),`${name}(`);
+  expression=expression.replace(/(^|[^<>=!])=([^=])/g,'$1==$2');
   if(!/^[0-9A-Za-z_+\-*/%().,<>=!?:\s"'А-Яа-яёЁ]*$/.test(expression))return{ok:false,error:'В формуле есть неподдерживаемые символы'};
   const identifiers=expression.match(/[A-Za-z_][A-Za-z0-9_]*/g)||[];
   const allowed=new Set([...FUNCTION_NAMES,'true','false']);
