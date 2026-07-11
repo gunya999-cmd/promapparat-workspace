@@ -2,6 +2,7 @@ export const STORAGE_KEY='promapparat_workspace_sprint65';
 export const SOURCES=['Тендер','Сайт','Холодный звонок','Повторный клиент','Email','Другое'];
 export const WORK_STATES=['Новая','Анализ','Решение участвовать','Расчет','Ожидаем ТКП','КП готовится','КП отправлено','Переговоры','Договор','Производство','Отгрузка','Закрыто успешно','Закрыто проиграно','Архив'];
 export const POSITION_STATES=['Не начато','Нужен поставщик','Запрос отправлен','Ожидаем ТКП','ТКП получено','Цена рассчитана','В КП','Заказано','В производстве','Готово досрочно','Готово','Частично отгружено','Отгружено','Закрыто'];
+export const USER_ROLES={ADMIN:'admin',MANAGER:'manager',HEAD:'head'};
 export const uid=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now()+Math.random());
 export const money=v=>new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Number(v||0))+' ₽';
 export const pct=v=>v==null||Number.isNaN(Number(v))?'—':`${Number(v).toFixed(1)}%`;
@@ -10,7 +11,13 @@ export const daysLeft=d=>d?Math.ceil((new Date(d)-new Date())/86400000):999;
 const minutesAgo=value=>new Date(Date.now()-value*60000).toISOString();
 
 export const createDemoWorkspace=()=>({
- schemaVersion:2,
+ schemaVersion:3,
+ currentUser:{id:'u-admin',name:'Администратор',role:USER_ROLES.ADMIN},
+ users:[
+  {id:'u-admin',name:'Администратор',role:USER_ROLES.ADMIN,active:true},
+  {id:'u-manager-1',name:'Иванов',role:USER_ROLES.MANAGER,active:true},
+  {id:'u-manager-2',name:'Петров',role:USER_ROLES.MANAGER,active:true}
+ ],
  works:[
   {id:'w1',code:'PA-2026-0001',title:'Клапаны 46 шт',source:'Тендер',customer:'НкНПЗ',objectName:'Клапаны и запорная арматура',manager:'Иванов',deadline:todayPlus(1),state:'Расчет'},
   {id:'w2',code:'PA-2026-0002',title:'Расходомеры и КИП',source:'Тендер',customer:'СИБУР',objectName:'Модернизация линии учета',manager:'Петров',deadline:todayPlus(3),state:'Ожидаем ТКП'},
@@ -39,7 +46,7 @@ export const createDemoWorkspace=()=>({
 
 export function normalizeWorkspace(data){
  const base=createDemoWorkspace();
- return{...base,...data,schemaVersion:2,works:data?.works||base.works,suppliers:data?.suppliers||base.suppliers,positions:(data?.positions||base.positions).map(position=>({...position,offers:position.offers||[],batches:position.batches||[]})),documents:data?.documents||[],tasks:data?.tasks||[],customers:data?.customers||[],events:data?.events||base.events,formulas:data?.formulas||[],formulaImports:data?.formulaImports||[]};
+ return{...base,...data,schemaVersion:3,currentUser:data?.currentUser||base.currentUser,users:data?.users||base.users,works:data?.works||base.works,suppliers:data?.suppliers||base.suppliers,positions:(data?.positions||base.positions).map(position=>({...position,offers:position.offers||[],batches:position.batches||[]})),documents:data?.documents||[],tasks:data?.tasks||[],customers:data?.customers||[],events:data?.events||base.events,formulas:data?.formulas||[],formulaImports:data?.formulaImports||[]};
 }
 
 export function calculatePosition(position,suppliers){
