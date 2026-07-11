@@ -8,6 +8,7 @@ import{PositionPanel}from'./components/PositionPanel.jsx';
 import{NewWorkModal}from'./components/NewWorkModal.jsx';
 import{SuppliersView}from'./components/SuppliersView.jsx';
 import{DashboardView}from'./components/DashboardView.jsx';
+import{FormulaDashboard}from'./components/FormulaDashboard.jsx';
 
 export default function App(){
  const{data,setData}=useWorkspace();
@@ -26,12 +27,13 @@ export default function App(){
   setActiveId(work.id);setSection('works');setShowNew(false);
  };
  const openWork=id=>{setActiveId(id);setSelectedId(null);setSection('works')};
- const wide=section==='suppliers'||section==='dashboard';
+ const wide=['suppliers','dashboard','formulas'].includes(section);
  return <div className={`app ${wide?'app-wide':''}`}>
   <WorkRail works={filtered} activeId={active?.id} onSelect={openWork} onNew={()=>setShowNew(true)} query={query} setQuery={setQuery} section={section} setSection={value=>{setSection(value);setSelectedId(null)}}/>
   {section==='dashboard'&&<DashboardView works={works} onOpenWork={openWork}/>} 
   {section==='works'&&<><WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId}/><PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)}/></>}
   {section==='suppliers'&&<SuppliersView data={data} setData={setData}/>} 
+  {section==='formulas'&&<FormulaDashboard data={data} setData={setData}/>} 
   {showNew&&<NewWorkModal onClose={()=>setShowNew(false)} onSave={createWork}/>} 
  </div>;
 }
