@@ -10,6 +10,7 @@ export const daysLeft=d=>d?Math.ceil((new Date(d)-new Date())/86400000):999;
 const minutesAgo=value=>new Date(Date.now()-value*60000).toISOString();
 
 export const createDemoWorkspace=()=>({
+ schemaVersion:2,
  works:[
   {id:'w1',code:'PA-2026-0001',title:'Клапаны 46 шт',source:'Тендер',customer:'НкНПЗ',objectName:'Клапаны и запорная арматура',manager:'Иванов',deadline:todayPlus(1),state:'Расчет'},
   {id:'w2',code:'PA-2026-0002',title:'Расходомеры и КИП',source:'Тендер',customer:'СИБУР',objectName:'Модернизация линии учета',manager:'Петров',deadline:todayPlus(3),state:'Ожидаем ТКП'},
@@ -24,7 +25,7 @@ export const createDemoWorkspace=()=>({
   {id:'p3',workId:'w1',rowNo:3,group:'Арматура',name:'Задвижка клиновая DN150 PN16',qty:6,unit:'шт',salePrice:'',status:'Нужен поставщик',offers:[],batches:[]},
   {id:'p4',workId:'w2',rowNo:1,group:'КИП',name:'Расходомер электромагнитный DN80',qty:4,unit:'шт',salePrice:'',status:'Ожидаем ТКП',offers:[{id:'o5',supplierId:'s3',price:94000,productionDays:20,deliveryDays:4,shipmentPlace:'Екатеринбург',paymentTerms:'50/50',hasTkp:false,selected:true}],batches:[]},
   {id:'p5',workId:'w3',rowNo:1,group:'Регулирующая арматура',name:'Клапан регулирующий DN25',qty:2,unit:'шт',salePrice:'',status:'Не начато',offers:[],batches:[]}],
- documents:[],tasks:[],customers:[],
+ documents:[],tasks:[],customers:[],formulas:[],formulaImports:[],
  events:[
   {id:'e1',workId:'w1',positionId:'p1',type:'price',title:'Рассчитана цена продажи',detail:'24 800 ₽ за единицу',author:'Иванов',createdAt:minutesAgo(35)},
   {id:'e2',workId:'w1',positionId:'p1',supplierId:'s1',type:'offer',title:'Выбрано предложение поставщика',detail:'ООО Арматура-Сервис · 18 500 ₽ · срок 18 дней',author:'Иванов',createdAt:minutesAgo(70)},
@@ -38,7 +39,7 @@ export const createDemoWorkspace=()=>({
 
 export function normalizeWorkspace(data){
  const base=createDemoWorkspace();
- return{...base,...data,works:data?.works||base.works,suppliers:data?.suppliers||base.suppliers,positions:(data?.positions||base.positions).map(position=>({...position,offers:position.offers||[],batches:position.batches||[]})),documents:data?.documents||[],tasks:data?.tasks||[],customers:data?.customers||[],events:data?.events||base.events};
+ return{...base,...data,schemaVersion:2,works:data?.works||base.works,suppliers:data?.suppliers||base.suppliers,positions:(data?.positions||base.positions).map(position=>({...position,offers:position.offers||[],batches:position.batches||[]})),documents:data?.documents||[],tasks:data?.tasks||[],customers:data?.customers||[],events:data?.events||base.events,formulas:data?.formulas||[],formulaImports:data?.formulaImports||[]};
 }
 
 export function calculatePosition(position,suppliers){
