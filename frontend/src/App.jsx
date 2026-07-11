@@ -19,7 +19,7 @@ export default function App(){
  const works=useMemo(()=>data.works.map(work=>calculateWork(work,data.positions,data.suppliers,data.settings)),[data]);
  const filtered=works.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
  const active=works.find(work=>work.id===activeId)||works[0],selected=active?.positions.find(position=>position.id===selectedId)||null;
- const createWork=form=>{try{let created;setData(current=>{const result=createWorkCommand(current,form,currentUser);created=result.work;return result.state});if(created)setActiveId(created.id);setSection('works');setShowNew(false)}catch(error){window.alert(error?.message||'Не удалось создать работу')}};
+ const createWork=form=>{try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setSection('works');setShowNew(false)}catch(error){window.alert(error?.message||'Не удалось создать работу')}};
  const openWork=id=>{setActiveId(id);setSelectedId(null);setSection('works')};
  const navigate=value=>{setSection(protectedSections.has(value)&&!isAdmin?'dashboard':value);setSelectedId(null)};
  const wide=['suppliers','dashboard','formulas','system'].includes(visibleSection);
