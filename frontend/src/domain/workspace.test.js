@@ -13,7 +13,7 @@ describe('workspace calculations',()=>{
 });
 
 describe('schema and commands',()=>{
- it('migrates old data and validates the result',()=>{const migrated=migrateWorkspace({works:[],positions:[],suppliers:[]});expect(migrated.schemaVersion).toBe(6);expect(Array.isArray(migrated.events)).toBe(true);expect(Array.isArray(migrated.specificationImports)).toBe(true);expect(validateWorkspace(migrated).ok).toBe(true)});
+ it('migrates old data and validates the result',()=>{const migrated=migrateWorkspace({works:[],positions:[],suppliers:[]});expect(migrated.schemaVersion).toBe(7);expect(Array.isArray(migrated.events)).toBe(true);expect(Array.isArray(migrated.specificationImports)).toBe(true);expect(Array.isArray(migrated.platforms)).toBe(true);expect(Array.isArray(migrated.opportunities)).toBe(true);expect(validateWorkspace(migrated).ok).toBe(true)});
  it('generates a monotonic work number independent of deletion',()=>{const state=createDemoWorkspace();state.counters.workSequence=11;state.works=state.works.slice(0,1);const result=nextWorkCode(state,new Date('2027-01-05T00:00:00Z'));expect(result.code).toBe('PA-2027-0012')});
  it('creates a work and a structured audit event together',()=>{const state=createDemoWorkspace(),actor=state.currentUser,result=createWorkCommand(state,{customer:'Заказчик',title:'Новый тендер',source:'Тендер'},actor);expect(result.state.works[0].id).toBe(result.work.id);expect(result.state.events[0].entityType).toBe('work');expect(result.state.events[0].actorId).toBe(actor.id)});
 });
