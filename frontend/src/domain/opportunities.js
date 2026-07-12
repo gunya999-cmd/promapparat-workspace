@@ -22,15 +22,26 @@ export const demoOpportunities=()=>[
 const actorName=actor=>actor?.name||'Пользователь';
 const now=()=>new Date().toISOString();
 const event=(type,title,detail,actor,extra={})=>({id:uid(),type,title,detail,author:actorName(actor),actorId:actor?.id||null,entityType:'opportunity',source:'ui',createdAt:now(),...extra});
+const today=value=>String(value||'').slice(0,10)===new Date().toISOString().slice(0,10);
 
-export function markPlatformChecked(state,platformId,actor){
+export function beginPlatformCheck(state,platformId,actor){
  const platform=(state.platforms||[]).find(item=>item.id===platformId);if(!platform)throw new Error('Площадка не найдена');
- const checkedAt=now(),platforms=state.platforms.map(item=>item.id===platformId?{...item,status:'Проверено',checkedToday:true,lastCheckedAt:checkedAt,lastCheckedBy:actor?.id||null}:item);
- return{...state,platforms,events:[event('platform','Площадка проверена',platform.name,actor,{entityType:'platform',entityId:platform.id}),...(state.events||[])]};
+ const startedAt=now(),platforms=state.platforms.map(item=>item.id===platformId?{...item,status:'Проверяется',checkStartedAt:startedAt,checkStartedBy:actor?.id||null,owner:item.owner||actorName(actor)}:item);
+ return{...state,platforms,events:[event('platform','Начата проверка площадки',platform.name,actor,{entityType:'platform',entityId:platform.id}),...(state.events||[])]};
 }
+
+export function completePlatformCheck(state,platformId,result={},actor){
+ const platform=(state.platforms||[]).find(item=>item.id===platformId);if(!platform)throw new Error('Площадка не найдена');
+ const checkedAt=now(),reviewedCount=Math.max(0,Number(result.reviewedCount||0)),foundCount=Math.max(0,Number(result.foundCount||0)),session={id:uid(),platformId,startedAt:platform.checkStartedAt||checkedAt,completedAt:checkedAt,reviewedCount,foundCount,notes:String(result.notes||''),actorId:actor?.id||null,actorName:actorName(actor)};
+ const platforms=state.platforms.map(item=>item.id===platformId?{...item,status:'Проверено',checkedToday:true,lastCheckedAt:checkedAt,lastCheckedBy:actor?.id||null,newCount:foundCount,checkStartedAt:null,checkStartedBy:null}:item);
+ return{...state,platforms,platformChecks:[session,...(state.platformChecks||[])],events:[event('platform','Площадка проверена',`${platform.name} · просмотрено ${reviewedCount} · найдено ${foundCount}`,actor,{entityType:'platform',entityId:platform.id,newValue:session}),...(state.events||[])]};
+}
+
+export function markPlatformChecked(state,platformId,actor){return completePlatformCheck(state,platformId,{},actor)}
 
 export function createOpportunity(state,draft,actor){
  const customer=String(draft.customer||'').trim(),title=String(draft.title||'').trim();if(!customer||!title)throw new Error('Заказчик и предмет закупки обязательны');
+ const duplicate=(state.opportunities||[]).find(item=>item.platformId===draft.platformId&&String(item.externalId||'').trim()&&String(item.externalId||'').trim()===String(draft.externalId||'').trim());if(duplicate)throw new Error('Эта закупка уже добавлена из выбранной площадки');
  const opportunity={id:uid(),platformId:draft.platformId||'',externalId:String(draft.externalId||'').trim(),customer,title,estimatedAmount:Math.max(0,Number(draft.estimatedAmount||0)),deadline:draft.deadline||'',status:'Новая',owner:draft.owner||actorName(actor),profileFit:null,manufacturerAvailable:null,timeFeasible:null,commercialInterest:null,notes:String(draft.notes||''),createdAt:now(),createdBy:actor?.id||null};
  return{state:{...state,opportunities:[opportunity,...(state.opportunities||[])],events:[event('opportunity','Найдена новая возможность',`${customer} · ${title}`,actor,{entityId:opportunity.id,newValue:opportunity}),...(state.events||[])]},opportunity};
 }
@@ -55,7 +66,7 @@ export function acceptOpportunity(state,id,actor){
 }
 
 export function opportunityAnalytics(state){
- const list=state.opportunities||[],platforms=state.platforms||[],accepted=list.filter(item=>item.status==='Взята в работу'),rejected=list.filter(item=>item.status==='Отказ'),active=list.filter(item=>['Новая','На оценке'].includes(item.status));
+ const list=state.opportunities||[],platforms=state.platforms||[],checks=state.platformChecks||[],accepted=list.filter(item=>item.status==='Взята в работу'),rejected=list.filter(item=>item.status==='Отказ'),active=list.filter(item=>['Новая','На оценке'].includes(item.status)),todayChecks=checks.filter(item=>today(item.completedAt));
  const reasons=rejected.reduce((map,item)=>{map[item.rejectionReason||'Не указано']=(map[item.rejectionReason||'Не указано']||0)+1;return map},{});
- return{total:list.length,newCount:list.filter(item=>item.status==='Новая').length,inReview:list.filter(item=>item.status==='На оценке').length,accepted:accepted.length,rejected:rejected.length,active:active.length,conversion:list.length?accepted.length/list.length*100:0,checkedPlatforms:platforms.filter(item=>item.checkedToday).length,totalPlatforms:platforms.length,reasons};
+ return{total:list.length,newCount:list.filter(item=>item.status==='Новая').length,inReview:list.filter(item=>item.status==='На оценке').length,accepted:accepted.length,rejected:rejected.length,active:active.length,conversion:list.length?accepted.length/list.length*100:0,checkedPlatforms:platforms.filter(item=>item.checkedToday).length,totalPlatforms:platforms.length,reasons,reviewedToday:todayChecks.reduce((sum,item)=>sum+Number(item.reviewedCount||0),0),foundToday:todayChecks.reduce((sum,item)=>sum+Number(item.foundCount||0),0),checksToday:todayChecks.length};
 }
