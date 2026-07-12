@@ -1,6 +1,7 @@
-import React,{useMemo,useState}from'react';
+import React,{useEffect,useMemo,useState}from'react';
 import{calculateWork,USER_ROLES}from'./domain/workspace.js';
 import{createWorkCommand}from'./domain/commands.js';
+import{demoOpportunities,demoPlatforms}from'./domain/opportunities.js';
 import{useWorkspace}from'./store/useWorkspace.js';
 import{WorkRail}from'./components/WorkRail.jsx';
 import{CommandBar}from'./components/CommandBar.jsx';
@@ -18,6 +19,7 @@ export default function App(){
  const workspace=useWorkspace(),{data,setData}=workspace;
  const[section,setSection]=useState('opportunities'),[activeId,setActiveId]=useState('w1'),[selectedId,setSelectedId]=useState(null),[query,setQuery]=useState(''),[showNew,setShowNew]=useState(false);
  const currentUser=data.currentUser||{id:'u-admin',name:'Администратор',role:USER_ROLES.ADMIN},isAdmin=currentUser.role===USER_ROLES.ADMIN;
+ useEffect(()=>{if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
  const protectedSections=new Set(['formulas','system']),visibleSection=protectedSections.has(section)&&!isAdmin?'opportunities':section;
  const works=useMemo(()=>data.works.map(work=>calculateWork(work,data.positions,data.suppliers,data.settings,data.formulas)),[data]);
  const filtered=works.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
