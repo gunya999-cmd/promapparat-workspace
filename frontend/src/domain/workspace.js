@@ -14,7 +14,7 @@ export const money=(value,currency='RUB')=>new Intl.NumberFormat('ru-RU',{style:
 export const pct=value=>value==null||Number.isNaN(Number(value))?'—':`${Number(value).toFixed(1)}%`;
 export const todayPlus=days=>new Date(Date.now()+days*86400000).toISOString().slice(0,10);
 export const dateOnly=value=>value?new Date(`${String(value).slice(0,10)}T00:00:00`):null;
-export const daysLeft=value=>{const target=dateOnly(value);if(!target)return999;const today=dateOnly(new Date().toISOString());return Math.round((target-today)/86400000)};
+export const daysLeft=value=>{const target=dateOnly(value);if(!target)return 999;const today=dateOnly(new Date().toISOString());return Math.round((target-today)/86400000)};
 export const deadlineBucket=value=>{const days=daysLeft(value);if(days<0)return'overdue';if(days===0)return'today';if(days===1)return'tomorrow';if(days<=7)return'week';return'later'};
 export const isWorkClosed=work=>CLOSED_WORK_STATES.has(work?.state);
 export const isPositionClosed=position=>CLOSED_POSITION_STATES.has(position?.status);
