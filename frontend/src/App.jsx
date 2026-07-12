@@ -25,7 +25,7 @@ export default function App(){
  const wide=['suppliers','dashboard','formulas','system'].includes(visibleSection);
  return <div className={`app ${wide?'app-wide':''}`}>
   <WorkRail works={filtered} activeId={active?.id} onSelect={openWork} onNew={()=>setShowNew(true)} query={query} setQuery={setQuery} section={visibleSection} setSection={navigate} currentUser={currentUser} isAdmin={isAdmin}/>
-  {visibleSection==='dashboard'&&<DashboardView works={works} settings={data.settings} onOpenWork={openWork}/>} 
+  {visibleSection==='dashboard'&&<DashboardView works={works} data={data} currentUser={currentUser} settings={data.settings} onOpenWork={openWork}/>} 
   {visibleSection==='works'&&active&&<><WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser}/><PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/></>}
   {visibleSection==='suppliers'&&<SuppliersView data={data} setData={setData} currentUser={currentUser}/>} 
   {visibleSection==='formulas'&&isAdmin&&<FormulaDashboard data={data} setData={setData} currentUser={currentUser}/>} 
