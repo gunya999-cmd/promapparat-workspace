@@ -8,5 +8,6 @@ import'./v2-shell.css';
 import'./v2-rail.css';
 import'./tender-command.css';
 import'./opportunities.css';
+import'./opportunity-route.css';
 
 createRoot(document.getElementById('root')).render(<App/>);
