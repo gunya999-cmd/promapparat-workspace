@@ -3,7 +3,7 @@ import{CURRENT_SCHEMA_VERSION,validateWorkspace}from'../domain/schema.js';
 
 const BACKUP_KEY=`${STORAGE_KEY}_backup`;
 const CORRUPT_KEY=`${STORAGE_KEY}_corrupt`;
-const COLLECTIONS=['works','suppliers','positions','documents','tasks','customers','events','formulas','formulaImports','specificationImports','users'];
+const COLLECTIONS=['works','suppliers','positions','documents','tasks','customers','events','formulas','formulaImports','specificationImports','platforms','opportunities','users'];
 const preserveCollections=(normalized,source)=>{const next={...normalized};for(const key of COLLECTIONS)if(Array.isArray(source?.[key]))next[key]=source[key];return next};
 
 export class LocalWorkspaceRepository{
