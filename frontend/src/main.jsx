@@ -9,5 +9,6 @@ import'./v2-rail.css';
 import'./tender-command.css';
 import'./opportunities.css';
 import'./opportunity-route.css';
+import'./opportunity-sheet.css';
 
 createRoot(document.getElementById('root')).render(<App/>);
