@@ -10,5 +10,6 @@ import'./tender-command.css';
 import'./opportunities.css';
 import'./opportunity-route.css';
 import'./opportunity-sheet.css';
+import'./director.css';
 
 createRoot(document.getElementById('root')).render(<App/>);
