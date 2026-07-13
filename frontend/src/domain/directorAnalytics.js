@@ -1,0 +1,30 @@
+import{daysLeft,isWorkClosed}from'./workspace.js';
+
+const ACTIVE_OPPORTUNITY=new Set(['Новая','На оценке']);
+const ACTIVE_WORK=new Set(['Новая','Анализ','Решение участвовать','Расчет','Ожидаем ТКП','КП готовится','КП отправлено','Переговоры','Договор','Производство','Отгрузка']);
+const probabilityByState={Новая:10,Анализ:20,'Решение участвовать':30,Расчет:40,'Ожидаем ТКП':45,'КП готовится':55,'КП отправлено':65,Переговоры:75,Договор:90,Производство:100,Отгрузка:100,'Закрыто успешно':100,'Закрыто проиграно':0,Архив:0};
+const sum=(items,getter)=>items.reduce((total,item)=>total+Number(getter(item)||0),0);
+const group=(items,key)=>items.reduce((map,item)=>{const value=key(item)||'Не указано';(map[value]||(map[value]=[])).push(item);return map},{});
+const ratio=(a,b)=>b?Math.round(a/b*1000)/10:0;
+
+export function buildDirectorAnalytics({data,works}){
+ const opportunities=data.opportunities||[],platforms=data.platforms||[],checks=data.platformChecks||[],activeWorks=works.filter(work=>ACTIVE_WORK.has(work.state)&&!isWorkClosed(work)),won=works.filter(work=>work.state==='Закрыто успешно'),lost=works.filter(work=>work.state==='Закрыто проиграно');
+ const opportunityAmount=sum(opportunities,item=>item.estimatedAmount),activeRevenue=sum(activeWorks,work=>work.totals.saleTotal),grossProfit=sum(activeWorks,work=>work.totals.grossProfit),netProfit=sum(activeWorks,work=>work.totals.netProfit),weightedRevenue=sum(activeWorks,work=>work.totals.saleTotal*(probabilityByState[work.state]??25)/100),weightedProfit=sum(activeWorks,work=>work.totals.netProfit*(probabilityByState[work.state]??25)/100);
+ const pipelineStages=['Найдена','На оценке','В работе','КП отправлено','Переговоры','Договор','Исполнение','Завершено'];
+ const pipeline=[
+  {label:'Найдена',count:opportunities.length,amount:opportunityAmount},
+  {label:'На оценке',count:opportunities.filter(item=>ACTIVE_OPPORTUNITY.has(item.status)).length,amount:sum(opportunities.filter(item=>ACTIVE_OPPORTUNITY.has(item.status)),item=>item.estimatedAmount)},
+  {label:'В работе',count:activeWorks.length,amount:activeRevenue},
+  {label:'КП отправлено',count:activeWorks.filter(item=>['КП отправлено','Переговоры','Договор','Производство','Отгрузка'].includes(item.state)).length,amount:sum(activeWorks.filter(item=>['КП отправлено','Переговоры','Договор','Производство','Отгрузка'].includes(item.state)),item=>item.totals.saleTotal)},
+  {label:'Переговоры',count:activeWorks.filter(item=>['Переговоры','Договор'].includes(item.state)).length,amount:sum(activeWorks.filter(item=>['Переговоры','Договор'].includes(item.state)),item=>item.totals.saleTotal)},
+  {label:'Договор',count:activeWorks.filter(item=>['Договор','Производство','Отгрузка'].includes(item.state)).length,amount:sum(activeWorks.filter(item=>['Договор','Производство','Отгрузка'].includes(item.state)),item=>item.totals.saleTotal)},
+  {label:'Исполнение',count:activeWorks.filter(item=>['Производство','Отгрузка'].includes(item.state)).length,amount:sum(activeWorks.filter(item=>['Производство','Отгрузка'].includes(item.state)),item=>item.totals.saleTotal)},
+  {label:'Завершено',count:won.length,amount:sum(won,item=>item.totals.saleTotal)}
+ ].filter(item=>pipelineStages.includes(item.label));
+ const managerGroups=group(opportunities,item=>item.owner),workByManager=group(works,item=>item.manager);
+ const managers=[...new Set([...Object.keys(managerGroups),...Object.keys(workByManager)])].map(name=>{const found=managerGroups[name]||[],managerWorks=workByManager[name]||[],accepted=found.filter(item=>item.status==='Взята в работу').length,managerWon=managerWorks.filter(item=>item.state==='Закрыто успешно').length;return{name,found:found.length,accepted,active:managerWorks.filter(item=>ACTIVE_WORK.has(item.state)).length,won:managerWon,conversion:ratio(accepted,found.length),revenue:sum(managerWorks,item=>item.totals.saleTotal),netProfit:sum(managerWorks,item=>item.totals.netProfit),risks:managerWorks.filter(item=>item.blockers>0||daysLeft(item.deadline)<0).length}}).sort((a,b)=>b.netProfit-a.netProfit);
+ const platformPerformance=platforms.map(platform=>{const found=opportunities.filter(item=>item.platformId===platform.id),accepted=found.filter(item=>item.status==='Взята в работу'),linkedWorks=works.filter(work=>work.sourcePlatformId===platform.id),platformWon=linkedWorks.filter(work=>work.state==='Закрыто успешно');return{id:platform.id,name:platform.name,checks:checks.filter(item=>item.platformId===platform.id).length,reviewed:sum(checks.filter(item=>item.platformId===platform.id),item=>item.reviewedCount),found:found.length,accepted:accepted.length,won:platformWon.length,conversion:ratio(accepted.length,found.length),revenue:sum(linkedWorks,item=>item.totals.saleTotal),profit:sum(linkedWorks,item=>item.totals.netProfit)}}).sort((a,b)=>b.profit-a.profit);
+ const risks=activeWorks.map(work=>({id:work.id,code:work.code,customer:work.customer,title:work.title,manager:work.manager,deadline:work.deadline,days:daysLeft(work.deadline),blockers:work.blockers,netProfit:work.totals.netProfit,reason:daysLeft(work.deadline)<0?'Просрочен дедлайн':work.blockers?`${work.blockers} проблемных позиций`:'Требует внимания'})).filter(item=>item.days<=2||item.blockers>0).sort((a,b)=>a.days-b.days||b.netProfit-a.netProfit);
+ const refusalReasons=Object.entries(opportunities.filter(item=>item.status==='Отказ').reduce((map,item)=>{const reason=item.rejectionReason||'Не указано';map[reason]=(map[reason]||0)+1;return map},{})).map(([reason,count])=>({reason,count})).sort((a,b)=>b.count-a.count);
+ return{summary:{opportunityAmount,activeRevenue,grossProfit,netProfit,weightedRevenue,weightedProfit,activeWorks:activeWorks.length,found:opportunities.length,accepted:opportunities.filter(item=>item.status==='Взята в работу').length,won:won.length,lost:lost.length,winRate:ratio(won.length,won.length+lost.length),searchConversion:ratio(opportunities.filter(item=>item.status==='Взята в работу').length,opportunities.length),overdue:activeWorks.filter(item=>daysLeft(item.deadline)<0).length},pipeline,managers,platforms:platformPerformance,risks,refusalReasons};
+}
