@@ -52,6 +52,22 @@ export function updateOpportunityQualification(state,id,patch,actor){
  return{...state,opportunities:state.opportunities.map(item=>item.id===id?next:item),events:[event('qualification','Обновлен экспресс-анализ',`${next.customer} · ${next.title}`,actor,{entityId:id,oldValue:current,newValue:next}),...(state.events||[])]};
 }
 
+export function updateOpportunityFields(state,id,patch,actor){
+ const current=(state.opportunities||[]).find(item=>item.id===id);if(!current)throw new Error('Возможность не найдена');
+ const allowed=['customer','title','externalId','platformId','estimatedAmount','deadline','owner','notes'];
+ const safe={};for(const key of allowed)if(key in patch)safe[key]=key==='estimatedAmount'?Math.max(0,Number(patch[key]||0)):String(patch[key]??'');
+ if('customer'in safe&&!safe.customer.trim())throw new Error('Заказчик обязателен');if('title'in safe&&!safe.title.trim())throw new Error('Предмет закупки обязателен');
+ const next={...current,...safe,updatedAt:now(),updatedBy:actor?.id||null};
+ const changed=Object.keys(safe).filter(key=>String(current[key]??'')!==String(next[key]??''));if(!changed.length)return state;
+ return{...state,opportunities:state.opportunities.map(item=>item.id===id?next:item),events:[event('opportunity','Изменена возможность',`${next.customer} · ${changed.join(', ')}`,actor,{entityId:id,oldValue:current,newValue:next}),...(state.events||[])]};
+}
+
+export function bulkUpdateOpportunities(state,ids,patch,actor){
+ const unique=[...new Set(ids||[])],existing=new Set((state.opportunities||[]).map(item=>item.id)),valid=unique.filter(id=>existing.has(id));if(!valid.length)throw new Error('Не выбраны возможности');
+ let next=state;for(const id of valid)next=updateOpportunityFields(next,id,patch,actor);
+ return{...next,events:[event('opportunity','Массовое изменение возможностей',`${valid.length} записей`,actor,{entityId:null,newValue:{ids:valid,patch}}),...(next.events||[])]};
+}
+
 export function rejectOpportunity(state,id,reason,note,actor){
  const current=(state.opportunities||[]).find(item=>item.id===id);if(!current)throw new Error('Возможность не найдена');if(!REJECTION_REASONS.includes(reason))throw new Error('Укажите причину отказа');
  const next={...current,status:'Отказ',rejectionReason:reason,rejectionNote:String(note||''),decidedAt:now(),decidedBy:actor?.id||null};
