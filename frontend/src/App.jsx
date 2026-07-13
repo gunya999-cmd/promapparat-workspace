@@ -12,6 +12,7 @@ import{NewWorkModal}from'./components/NewWorkModal.jsx';
 import{SuppliersView}from'./components/SuppliersView.jsx';
 import{DashboardView}from'./components/DashboardView.jsx';
 import{OpportunityEngine}from'./components/OpportunityEngine.jsx';
+import{DirectorView}from'./components/DirectorView.jsx';
 import{FormulaDashboard}from'./components/FormulaDashboard.jsx';
 import{SystemSettings}from'./components/SystemSettings.jsx';
 
@@ -20,7 +21,7 @@ export default function App(){
  const[section,setSection]=useState('opportunities'),[activeId,setActiveId]=useState('w1'),[selectedId,setSelectedId]=useState(null),[query,setQuery]=useState(''),[showNew,setShowNew]=useState(false);
  const currentUser=data.currentUser||{id:'u-admin',name:'Администратор',role:USER_ROLES.ADMIN},isAdmin=currentUser.role===USER_ROLES.ADMIN;
  useEffect(()=>{if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
- const protectedSections=new Set(['formulas','system']),visibleSection=protectedSections.has(section)&&!isAdmin?'opportunities':section;
+ const protectedSections=new Set(['director','formulas','system']),visibleSection=protectedSections.has(section)&&!isAdmin?'opportunities':section;
  const works=useMemo(()=>data.works.map(work=>calculateWork(work,data.positions,data.suppliers,data.settings,data.formulas)),[data]);
  const filtered=works.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
  const active=works.find(work=>work.id===activeId)||works[0],selected=active?.positions.find(position=>position.id===selectedId)||null;
@@ -33,6 +34,7 @@ export default function App(){
   <CommandBar works={works} currentUser={currentUser} onOpenWork={openWork} onNew={()=>setShowNew(true)} section={visibleSection}/>
   <div className="v2-content">
    {visibleSection==='opportunities'&&<OpportunityEngine data={data} setData={setData} currentUser={currentUser} onOpenWork={openWork}/>} 
+   {visibleSection==='director'&&isAdmin&&<DirectorView data={data} works={works} onOpenWork={openWork}/>} 
    {visibleSection==='dashboard'&&<DashboardView works={works} data={data} currentUser={currentUser} settings={data.settings} onOpenWork={openWork}/>} 
    {visibleSection==='works'&&active&&<WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser}/>} 
    {visibleSection==='suppliers'&&<SuppliersView data={data} setData={setData} currentUser={currentUser}/>} 
