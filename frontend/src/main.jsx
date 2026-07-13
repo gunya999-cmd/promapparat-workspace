@@ -13,6 +13,7 @@ import'./opportunity-sheet.css';
 import'./director.css';
 import'./director-finance.css';
 import'./r4-manager.css';
+import'./r4-manager-focus.css';
 import'./r4-role-fixes.css';
 
 createRoot(document.getElementById('root')).render(<App/>);
