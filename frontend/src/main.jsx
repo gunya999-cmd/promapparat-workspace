@@ -11,5 +11,6 @@ import'./opportunities.css';
 import'./opportunity-route.css';
 import'./opportunity-sheet.css';
 import'./director.css';
+import'./director-finance.css';
 
 createRoot(document.getElementById('root')).render(<App/>);
