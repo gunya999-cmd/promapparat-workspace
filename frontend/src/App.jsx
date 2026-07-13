@@ -33,10 +33,11 @@ export default function App(){
  const createWork=form=>{if(isDirector)return;try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setSection('works');setShowNew(false)}catch(error){window.alert(error?.message||'Не удалось создать работу')}};
  const openWork=id=>{setActiveId(id);setSelectedId(null);setSection('works')};
  const navigate=value=>{if(!isDirector&&protectedSections.has(value))value='manager';if(isDirector&&value==='manager')value='director';setSection(value);setSelectedId(null)};
+ const switchRole=role=>setData(current=>{const user=(current.users||[]).find(item=>item.role===role&&item.active!==false);if(!user){window.alert(role==='manager'?'В системе нет активного менеджера':'В системе нет активного директора');return current}return{...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}});
  const showContext=visibleSection==='works'&&active;
  return <div className={`v2-shell ${showContext?'with-context':''}`}>
   <WorkRail works={filtered} activeId={active?.id} onSelect={openWork} onNew={()=>!isDirector&&setShowNew(true)} query={query} setQuery={setQuery} section={visibleSection} setSection={navigate} currentUser={currentUser} isAdmin={isDirector}/>
-  <CommandBar works={roleWorks} currentUser={currentUser} onOpenWork={openWork} onNew={()=>!isDirector&&setShowNew(true)} section={visibleSection}/>
+  <CommandBar works={roleWorks} currentUser={currentUser} onOpenWork={openWork} onNew={()=>!isDirector&&setShowNew(true)} onSwitchRole={switchRole} section={visibleSection}/>
   <div className="v2-content">
    {visibleSection==='manager'&&!isDirector&&<R4ManagerWorkspace data={data} setData={setData} works={roleWorks} currentUser={currentUser} onOpenWork={openWork} onOpenOpportunities={()=>navigate('opportunities')} onNew={()=>setShowNew(true)}/>} 
    {visibleSection==='opportunities'&&<OpportunityEngine data={data} setData={setData} currentUser={currentUser} onOpenWork={openWork}/>} 
