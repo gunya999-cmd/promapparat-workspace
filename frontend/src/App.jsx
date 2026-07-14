@@ -27,6 +27,7 @@ export default function App(){
  useEffect(()=>{setSection(isDirector?'director':'manager');setSelectedId(null);setShowNew(false);setShowTenderCapture(false)},[currentUser.id,currentUser.role,isDirector]);
  useEffect(()=>{if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),2600);return()=>clearTimeout(timer)},[notice]);
+ useEffect(()=>{const hotkey=event=>{if(isDirector)return;if(event.ctrlKey&&event.altKey&&event.key.toLowerCase()==='t'){event.preventDefault();setShowTenderCapture(true)}};window.addEventListener('keydown',hotkey);return()=>window.removeEventListener('keydown',hotkey)},[isDirector]);
  const protectedSections=new Set(['director','finance','formulas','system']);
  const visibleSection=!isDirector&&protectedSections.has(section)?'manager':isDirector&&section==='manager'?'director':section;
  const works=useMemo(()=>data.works.map(work=>calculateWork(work,data.positions,data.suppliers,data.settings,data.formulas)),[data]);
