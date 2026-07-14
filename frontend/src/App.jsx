@@ -1,4 +1,5 @@
 import React,{useEffect,useMemo,useRef,useState}from'react';
+import{logout}from'./api/client.js';
 import{calculateWork}from'./domain/workspace.js';
 import{createWorkCommand}from'./domain/commands.js';
 import{demoOpportunities,demoPlatforms}from'./domain/opportunities.js';
@@ -20,33 +21,34 @@ import{DirectorFinanceCenter}from'./components/DirectorFinanceCenter.jsx';
 import{FormulaDashboard}from'./components/FormulaDashboard.jsx';
 import{SystemSettings}from'./components/SystemSettings.jsx';
 
-export default function App(){
- const workspace=useWorkspace(),{data,setData}=workspace,captureHandled=useRef(false);
+export default function App({serverSession=null}){
+ const workspace=useWorkspace({serverSession}),{data,setData}=workspace,captureHandled=useRef(false);
  const currentUser=data.currentUser||{id:'u-director',name:'Директор',role:'director'},isDirector=currentUser.role==='director';
  const[section,setSection]=useState(isDirector?'director':'manager'),[activeId,setActiveId]=useState('w1'),[workInitialTab,setWorkInitialTab]=useState(''),[selectedId,setSelectedId]=useState(null),[query,setQuery]=useState(''),[showNew,setShowNew]=useState(false),[showTenderCapture,setShowTenderCapture]=useState(false),[captureInput,setCaptureInput]=useState(''),[focusOpportunityId,setFocusOpportunityId]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{setSection(isDirector?'director':'manager');setSelectedId(null);setShowNew(false);setShowTenderCapture(false)},[currentUser.id,currentUser.role,isDirector]);
- useEffect(()=>{if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
+ useEffect(()=>{if(workspace.serverManaged)return;if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[workspace.serverManaged,data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),3600);return()=>clearTimeout(timer)},[notice]);
  useEffect(()=>{const hotkey=event=>{if(isDirector)return;if(event.ctrlKey&&event.altKey&&event.key.toLowerCase()==='t'){event.preventDefault();setCaptureInput('');setShowTenderCapture(true)}};window.addEventListener('keydown',hotkey);return()=>window.removeEventListener('keydown',hotkey)},[isDirector]);
- useEffect(()=>{if(captureHandled.current)return;const params=new URLSearchParams(window.location.search);if(params.get('capture')!=='1')return;captureHandled.current=true;const text=[params.get('title'),params.get('text'),params.get('url')].filter(Boolean).join('\n');setCaptureInput(text);const manager=userForRole(data,'manager');if(isDirector&&manager)setData(current=>({...current,currentUser:manager,meta:{...current.meta,updatedAt:new Date().toISOString()}}));params.delete('capture');params.delete('title');params.delete('text');params.delete('url');const next=`${window.location.pathname}${params.toString()?`?${params}`:''}${window.location.hash}`;window.history.replaceState({},'',next)},[data,isDirector,setData]);
+ useEffect(()=>{if(captureHandled.current)return;const params=new URLSearchParams(window.location.search);if(params.get('capture')!=='1')return;captureHandled.current=true;const text=[params.get('title'),params.get('text'),params.get('url')].filter(Boolean).join('\n');if(isDirector&&workspace.serverManaged)setNotice('Добавление тендера доступно пользователю с ролью менеджера');else{setCaptureInput(text);if(isDirector){const manager=userForRole(data,'manager');if(manager)setData(current=>({...current,currentUser:manager,meta:{...current.meta,updatedAt:new Date().toISOString()}}))}}params.delete('capture');params.delete('title');params.delete('text');params.delete('url');const next=`${window.location.pathname}${params.toString()?`?${params}`:''}${window.location.hash}`;window.history.replaceState({},'',next)},[data,isDirector,setData,workspace.serverManaged]);
  useEffect(()=>{if(captureInput&&!isDirector)setShowTenderCapture(true)},[captureInput,isDirector]);
  const protectedSections=new Set(['director','finance','formulas','system']);
  const visibleSection=!isDirector&&protectedSections.has(section)?'manager':isDirector&&section==='manager'?'director':section;
- const works=useMemo(()=>data.works.map(work=>calculateWork(work,data.positions,data.suppliers,data.settings,data.formulas)),[data]);
+ const works=useMemo(()=>(data.works||[]).map(work=>calculateWork(work,data.positions||[],data.suppliers||[],data.settings,data.formulas)),[data]);
  const roleWorks=isDirector?works:works.filter(work=>work.manager===currentUser.name);
  const filtered=roleWorks.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
  const active=roleWorks.find(work=>work.id===activeId)||roleWorks[0]||null,selected=active?.positions.find(position=>position.id===selectedId)||null;
  const createWork=form=>{if(isDirector)return;try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setWorkInitialTab('overview');setSection('works');setShowNew(false);setNotice('Сделка создана')}catch(error){setNotice(error?.message||'Не удалось создать сделку')}};
  const openWork=(id,initialTab='')=>{setActiveId(id);setWorkInitialTab(initialTab);setSelectedId(null);setSection('works')};
  const navigate=value=>{if(!isDirector&&protectedSections.has(value))value='manager';if(isDirector&&value==='manager')value='director';setSection(value);setSelectedId(null)};
- const switchRole=role=>{const user=userForRole(data,role);if(!user)return;setData(current=>({...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}));setNotice(role==='manager'?`Открыт рабочий стол: ${user.name}`:'Открыта сводка компании')};
+ const switchRole=role=>{if(workspace.serverManaged)return;const user=userForRole(data,role);if(!user)return;setData(current=>({...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}));setNotice(role==='manager'?`Открыт рабочий стол: ${user.name}`:'Открыта сводка компании')};
  const openTenderCapture=()=>{if(isDirector)return;setCaptureInput('');setShowTenderCapture(true)};
  const closeTenderCapture=()=>{setShowTenderCapture(false);setCaptureInput('')};
- const tenderSaved=opportunity=>{const failed=(opportunity?.attachments||[]).filter(item=>item.storedLocally===false).length;closeTenderCapture();setFocusOpportunityId(opportunity?.id||'');setSection('opportunities');setSelectedId(null);setNotice(failed?`Тендер сохранён, но ${failed} файл(а) не сохранились локально. Проверьте разрешения браузера.`:opportunity?.captureIncomplete?'Тендер сохранён. Дополните карточку перед оценкой.':'Тендер и файлы добавлены в очередь «Новые»')};
+ const tenderSaved=opportunity=>{const failed=(opportunity?.attachments||[]).filter(item=>item.storedLocally===false).length;closeTenderCapture();setFocusOpportunityId(opportunity?.id||'');setSection('opportunities');setSelectedId(null);setNotice(failed?`Тендер сохранён, но ${failed} файл(а) не сохранились локально.`:opportunity?.captureIncomplete?'Тендер сохранён. Дополните карточку перед оценкой.':'Тендер и файлы добавлены в очередь «Новые»')};
  const showContext=visibleSection==='works'&&active;
+ if(workspace.loading)return <main className="server-loading"><div><i/><b>Загружаю рабочее пространство</b><span>Получаем актуальные данные компании…</span></div></main>;
  return <div className={`v2-shell ${showContext?'with-context':''}`}>
   <WorkRail works={filtered} activeId={active?.id} onSelect={openWork} onNew={()=>!isDirector&&setShowNew(true)} query={query} setQuery={setQuery} section={visibleSection} setSection={navigate} currentUser={currentUser} isAdmin={isDirector}/>
-  <CommandBar works={roleWorks} users={data.users||[]} currentUser={currentUser} onOpenWork={openWork} onAddTender={openTenderCapture} onSwitchRole={switchRole} section={visibleSection}/>
+  <CommandBar works={roleWorks} users={data.users||[]} currentUser={currentUser} onOpenWork={openWork} onAddTender={openTenderCapture} onSwitchRole={switchRole} onLogout={()=>logout()} serverManaged={workspace.serverManaged} syncState={workspace.syncState} onReload={workspace.reloadFromServer} section={visibleSection}/>
   <div className="v2-content">
    {visibleSection==='manager'&&!isDirector&&<R4ManagerWorkspace data={data} setData={setData} works={roleWorks} currentUser={currentUser} onOpenWork={openWork} onOpenOpportunities={()=>navigate('opportunities')} onNew={()=>setShowNew(true)}/>} 
    {visibleSection==='opportunities'&&<OpportunityEngine data={data} setData={setData} currentUser={currentUser} onOpenWork={openWork} onAddTender={openTenderCapture} focusOpportunityId={focusOpportunityId}/>} 
@@ -56,7 +58,7 @@ export default function App(){
    {visibleSection==='works'&&active&&<WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser} initialTab={workInitialTab}/>} 
    {visibleSection==='suppliers'&&<SuppliersView data={data} setData={setData} currentUser={currentUser}/>} 
    {visibleSection==='formulas'&&isDirector&&<FormulaDashboard data={data} setData={setData} currentUser={currentUser}/>} 
-   {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
+   {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} serverManaged={workspace.serverManaged} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
   </div>
   {showContext&&(selected&&!isDirector?<PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/>:<WorkContextPanel work={active} data={data} readOnly={isDirector} onSelectPosition={setSelectedId}/>)}
   {showNew&&!isDirector&&<NewWorkModal currentUser={currentUser} onClose={()=>setShowNew(false)} onSave={createWork}/>} 
