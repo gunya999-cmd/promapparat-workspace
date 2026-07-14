@@ -1,7 +1,7 @@
 import {Router} from 'express';
 import {query,transaction} from '../db.js';
-import {requireAuth} from '../middleware/auth.js';
-import {mergeWorkspaceByRole,publicWorkspace,validateWorkspacePayload} from '../policies/workspacePolicy.js';
+import {requireAuth,requireRole} from '../middleware/auth.js';
+import {buildBootstrapWorkspace,isWorkspaceEmpty,mergeWorkspaceByRole,publicWorkspace,validateBootstrapPayload,validateWorkspacePayload} from '../policies/workspacePolicy.js';
 
 const router=Router();
 const loadUsers=(client,organizationId)=>client.query('SELECT id,name,email,role,active FROM users WHERE organization_id=$1 ORDER BY role,name',[organizationId]);
@@ -13,6 +13,11 @@ router.get('/',requireAuth,async(req,res,next)=>{try{
  ]),state=stateResult.rows[0];
  if(!state)return res.status(404).json({error:'WORKSPACE_NOT_FOUND',message:'Рабочее пространство не создано'});
  res.json({revision:Number(state.revision),schemaVersion:state.schema_version,updatedAt:state.updated_at,data:publicWorkspace(state.data,req.user,usersResult.rows,Number(state.revision))});
+ }catch(error){next(error)}});
+
+router.post('/bootstrap',requireAuth,requireRole('director'),async(req,res,next)=>{try{
+ const incoming=req.body?.data,errors=validateBootstrapPayload(incoming);if(errors.length)return res.status(422).json({error:'INVALID_WORKSPACE',message:'Некорректный файл рабочего пространства',details:errors});
+ const result=await transaction(async client=>{const locked=await client.query('SELECT revision,schema_version,data FROM workspace_states WHERE organization_id=$1 FOR UPDATE',[req.user.organizationId]),current=locked.rows[0];if(!current)return{status:404};if(Number(current.revision)>0||!isWorkspaceEmpty(current.data))return{status:409};const data=buildBootstrapWorkspace(current.data,incoming),revision=1,schemaVersion=Math.max(Number(current.schema_version||10),Number(data.schemaVersion||10));await client.query('UPDATE workspace_states SET revision=$2,schema_version=$3,data=$4::jsonb,updated_by=$5,updated_at=now() WHERE organization_id=$1',[req.user.organizationId,revision,schemaVersion,JSON.stringify(data),req.user.id]);await client.query('INSERT INTO audit_log(organization_id,user_id,action,entity_type,changed_sections,old_revision,new_revision,metadata) VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)',[req.user.organizationId,req.user.id,'workspace.bootstrap','workspace',[...new Set(Object.keys(incoming).filter(key=>!['users','currentUser','meta'].includes(key)))],0,revision,JSON.stringify({source:'json-import'})]);const users=await loadUsers(client,req.user.organizationId);return{status:200,revision,schemaVersion,data:publicWorkspace(data,req.user,users.rows,revision)}});if(result.status===409)return res.status(409).json({error:'WORKSPACE_ALREADY_INITIALIZED',message:'Серверное пространство уже содержит рабочие данные. Одноразовый импорт заблокирован.'});if(result.status===404)return res.status(404).json({error:'WORKSPACE_NOT_FOUND',message:'Рабочее пространство не создано'});res.json(result);
  }catch(error){next(error)}});
 
 router.put('/',requireAuth,async(req,res,next)=>{try{
