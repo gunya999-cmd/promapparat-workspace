@@ -1,6 +1,9 @@
-FROM python:3.12-slim
+FROM node:20-bookworm-slim
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY app ./app
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+COPY package*.json ./
+RUN npm install --omit=dev
+COPY . .
+RUN mkdir -p /app/storage
+ENV NODE_ENV=production
+EXPOSE 8787
+CMD ["sh","-c","npm run migrate && npm start"]
