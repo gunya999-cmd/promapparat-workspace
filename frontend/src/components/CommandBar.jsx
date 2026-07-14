@@ -1,7 +1,7 @@
 import React,{useMemo,useState}from'react';
 import{Bell,Command,Plus,Search,ShieldCheck,UserRound}from'lucide-react';
 
-const sectionTitle=section=>({manager:'Рабочий стол менеджера',opportunities:'Поиск тендеров',dashboard:'Рабочий день',works:'Карточка сделки',suppliers:'Поставщики',director:'Панель директора',finance:'Финансовый центр директора',formulas:'Конструктор формул',system:'Система'}[section]||'PromApparat Workspace');
+const sectionTitle=section=>({manager:'Рабочий стол менеджера',opportunities:'Тендеры и площадки',dashboard:'Рабочий день',works:'Карточка сделки',suppliers:'Поставщики',director:'Сводка компании',finance:'Финансовый центр',formulas:'Формулы',system:'Система и данные'}[section]||'PromApparat Workspace');
 
 export function CommandBar({works,users,currentUser,onOpenWork,onNew,onSwitchRole,section}){
  const[query,setQuery]=useState(''),[open,setOpen]=useState(false),isDirector=currentUser?.role==='director';
