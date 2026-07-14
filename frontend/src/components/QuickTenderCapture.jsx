@@ -5,7 +5,7 @@ import{analyzeTenderPaste,buildManualTenderDraft}from'../domain/manualTenderCapt
 
 const blank=()=>({pastedText:'',sourceUrl:'',platformId:'',externalId:'',customer:'',title:'',estimatedAmount:'',deadline:'',notes:'',attachments:[]});
 
-export function QuickTenderCapture({data,setData,currentUser,onClose,onSaved}){
+export function QuickTenderCapture({data,setData,currentUser,onClose,onSaved,initialCapture=''}){
  const fileRef=useRef(null),[form,setForm]=useState(blank),[error,setError]=useState(''),[busy,setBusy]=useState(false),[dragging,setDragging]=useState(false),platforms=data.platforms||[];
  const detectedPlatform=platforms.find(item=>item.id===form.platformId);
  const applyPaste=value=>{const next=analyzeTenderPaste(value,platforms);setForm(current=>({...current,pastedText:value,sourceUrl:next.sourceUrl,platformId:next.platformId,externalId:next.externalId,title:current.title||next.title,customer:current.customer||next.customer}));setError('')};
@@ -13,6 +13,7 @@ export function QuickTenderCapture({data,setData,currentUser,onClose,onSaved}){
  const addFiles=files=>{const additions=Array.from(files||[]).map(file=>({name:file.name,size:file.size,type:file.type}));if(!additions.length)return;setForm(current=>({...current,attachments:[...current.attachments,...additions]}));setDragging(false);if(fileRef.current)fileRef.current.value=''};
  const removeFile=index=>setForm(current=>({...current,attachments:current.attachments.filter((_,itemIndex)=>itemIndex!==index)}));
  const save=()=>{if(busy)return;if(!form.pastedText.trim()&&!form.sourceUrl.trim()&&!form.customer.trim()&&!form.title.trim()){setError('Вставьте ссылку или укажите хотя бы заказчика либо предмет закупки.');return}setBusy(true);try{const draft=buildManualTenderDraft(form,data.platforms||[],currentUser),result=createOpportunity(data,draft,currentUser);setData(result.state);onSaved?.(result.opportunity)}catch(exception){setError(exception?.message||'Не удалось добавить тендер');setBusy(false)}};
+ useEffect(()=>{if(initialCapture)applyPaste(initialCapture)},[initialCapture]);
  useEffect(()=>{const keyboard=event=>{if(event.key==='Escape')onClose?.();if(event.ctrlKey&&event.key==='Enter'){event.preventDefault();save()}};window.addEventListener('keydown',keyboard);return()=>window.removeEventListener('keydown',keyboard)});
  return <div className={`capture-backdrop ${dragging?'is-dragging':''}`} onDragEnter={event=>{event.preventDefault();setDragging(true)}} onDragOver={event=>event.preventDefault()} onDragLeave={event=>{if(event.target===event.currentTarget)setDragging(false)}} onDrop={event=>{event.preventDefault();addFiles(event.dataTransfer.files)}} onMouseDown={event=>event.target===event.currentTarget&&onClose?.()}>
   <section className="tender-capture" role="dialog" aria-modal="true" aria-labelledby="capture-title">
