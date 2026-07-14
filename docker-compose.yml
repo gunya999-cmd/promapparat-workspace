@@ -27,6 +27,7 @@ services:
       JWT_SECRET: local-development-secret-change-before-production-2026
       CORS_ORIGINS: http://localhost:5173,http://localhost:3000
       FILE_STORAGE_DIR: /app/storage
+      SEED_ON_START: "true"
       SEED_DIRECTOR_EMAIL: director@promapparat.local
       SEED_DIRECTOR_PASSWORD: ChangeMe-Director-2026
       SEED_MANAGER_EMAIL: manager@promapparat.local
