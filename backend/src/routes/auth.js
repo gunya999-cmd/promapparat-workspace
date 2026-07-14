@@ -24,9 +24,9 @@ router.post('/login',async(req,res,next)=>{try{
 router.post('/refresh',async(req,res,next)=>{try{
  const refreshToken=String(req.body?.refreshToken||'');if(!refreshToken)return res.status(400).json({error:'INVALID_INPUT',message:'Отсутствует токен обновления'});
  const session=await transaction(async client=>{
-  const found=await client.query(`SELECT rt.*,u.* FROM refresh_tokens rt JOIN users u ON u.id=rt.user_id WHERE rt.token_hash=$1 AND rt.revoked_at IS NULL AND rt.expires_at>now() AND u.active=true FOR UPDATE`,[hashToken(refreshToken)]),user=found.rows[0];
+  const found=await client.query(`SELECT rt.id AS refresh_id,u.id,u.organization_id,u.email,u.name,u.role,u.active FROM refresh_tokens rt JOIN users u ON u.id=rt.user_id WHERE rt.token_hash=$1 AND rt.revoked_at IS NULL AND rt.expires_at>now() AND u.active=true FOR UPDATE OF rt`,[hashToken(refreshToken)]),user=found.rows[0];
   if(!user)return null;
-  await client.query('UPDATE refresh_tokens SET revoked_at=now() WHERE id=$1',[user.id_1||user.id]);
+  await client.query('UPDATE refresh_tokens SET revoked_at=now() WHERE id=$1',[user.refresh_id]);
   return issueSession(user,client);
  });
  if(!session)return res.status(401).json({error:'INVALID_REFRESH_TOKEN',message:'Сессия истекла. Войдите снова'});
