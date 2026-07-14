@@ -1,20 +1,23 @@
 import React,{useState}from'react';
-import{AlertTriangle,ArrowRight,Check,ExternalLink,Paperclip,X}from'lucide-react';
+import{AlertTriangle,ArrowRight,Check,Download,ExternalLink,Paperclip,X}from'lucide-react';
 import{money}from'../domain/workspace.js';
 import{REJECTION_REASONS}from'../domain/opportunities.js';
+import{downloadStoredAttachment}from'../domain/attachmentStore.js';
 
 const answerLabel=value=>value===true?'Да':value===false?'Нет':'—';
 
 export function OpportunityDecisionPanel({selected,platform,data,onQualify,onAccept,onReject,onOpenWork,readOnly=false}){
- const[rejectReason,setRejectReason]=useState(''),[rejectNote,setRejectNote]=useState('');
+ const[rejectReason,setRejectReason]=useState(''),[rejectNote,setRejectNote]=useState(''),[fileError,setFileError]=useState('');
  if(!selected)return <aside className="qualification-panel"><div className="qualification-empty">Выберите строку в таблице</div></aside>;
  const reject=()=>{if(!rejectReason)return;onReject(rejectReason,rejectNote);setRejectReason('');setRejectNote('')};
+ const openFile=async attachment=>{try{await downloadStoredAttachment(attachment);setFileError('')}catch(exception){setFileError(exception?.message||'Файл не найден на этом компьютере')}};
  const missing=[!selected.customer||selected.customer==='Заказчик не указан'?'заказчик':'',!selected.title||selected.title.startsWith('Новый тендер')?'предмет закупки':'',!selected.deadline?'срок подачи':''].filter(Boolean);
  return <aside className="qualification-panel">
   <div className="qualification-head"><span>{readOnly?'Контроль директора':'Экспресс-анализ'}</span><h2>{selected.customer}</h2><p>{selected.title}</p></div>
   <div className="qualification-summary"><div><span>Площадка</span><b>{platform?.name||'Другая'}</b></div><div><span>Сумма</span><b>{money(selected.estimatedAmount,data.settings?.currency||'RUB')}</b></div><div><span>Дедлайн</span><b>{selected.deadline||'Не указан'}</b></div></div>
   {missing.length>0&&<div className="capture-incomplete"><AlertTriangle/><div><b>Нужно дополнить карточку</b><span>{missing.join(', ')}. Измените данные прямо в строке таблицы.</span></div></div>}
-  {(selected.sourceUrl||(selected.attachments||[]).length>0)&&<section className="opportunity-source">{selected.sourceUrl&&<a href={selected.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink/><div><b>Открыть оригинал</b><span>{selected.externalId||selected.sourceUrl}</span></div></a>}{(selected.attachments||[]).length>0&&<div className="opportunity-attachments"><Paperclip/><div><b>Приложено файлов: {selected.attachments.length}</b><span>{selected.attachments.map(item=>item.name).join(', ')}</span></div></div>}</section>}
+  {fileError&&<div className="capture-file-error"><AlertTriangle/>{fileError}</div>}
+  {(selected.sourceUrl||(selected.attachments||[]).length>0)&&<section className="opportunity-source">{selected.sourceUrl&&<a href={selected.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink/><div><b>Открыть оригинал</b><span>{selected.externalId||selected.sourceUrl}</span></div></a>}{(selected.attachments||[]).length>0&&<div className="opportunity-attachments"><div className="opportunity-attachments-head"><Paperclip/><div><b>Приложения: {selected.attachments.length}</b><span>Сохранены локально на Windows-компьютере</span></div></div><div className="opportunity-file-list">{selected.attachments.map((item,index)=><button key={item.storageKey||`${item.name}-${index}`} disabled={!item.storageKey||item.storedLocally===false} onClick={()=>openFile(item)}><Download/><span><b>{item.name}</b><small>{item.storageKey&&item.storedLocally!==false?'Скачать':'Доступна только карточка'}</small></span></button>)}</div></div>}</section>}
   {readOnly&&<div className="readonly-note">Решение и комментарии редактирует ответственный менеджер.</div>}
   {['profileFit','manufacturerAvailable','timeFeasible','commercialInterest'].map((field,index)=>{const labels=['Наш профиль','Есть производитель','Успеваем по сроку','Коммерчески интересно'];return <div className="qualification-question" key={field}><div><b>{labels[index]}</b><span>{answerLabel(selected[field])}</span></div>{!readOnly&&<div><button className={selected[field]===true?'active yes':''} onClick={()=>onQualify(field,true)}>Да</button><button className={selected[field]===false?'active no':''} onClick={()=>onQualify(field,false)}>Нет</button></div>}</div>})}
   {readOnly?<div className="qualification-notes"><span>Комментарий</span><p>{selected.notes||'Комментария нет'}</p></div>:<label className="qualification-notes">Комментарий<textarea defaultValue={selected.notes||''} key={`${selected.id}-${selected.updatedAt||''}`} onBlur={event=>onQualify('notes',event.target.value)}/></label>}
