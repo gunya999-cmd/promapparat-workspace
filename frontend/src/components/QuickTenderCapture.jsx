@@ -27,7 +27,7 @@ export function QuickTenderCapture({data,setData,currentUser,onClose,onSaved,ini
    </div>
    {error&&<div className="capture-error">{error}</div>}
    <div className="capture-grid">
-    <label className="wide"><span>Предмет закупки</span><input value={form.title} onChange={event=>setForm({...form,title:event.value})} placeholder="Можно заполнить позже"/></label>
+    <label className="wide"><span>Предмет закупки</span><input value={form.title} onChange={event=>setForm({...form,title:event.target.value})} placeholder="Можно заполнить позже"/></label>
     <label><span>Заказчик</span><input value={form.customer} onChange={event=>setForm({...form,customer:event.target.value})} placeholder="Необязательно на первом шаге"/></label>
     <label><span>Площадка</span><select value={form.platformId} onChange={event=>setForm({...form,platformId:event.target.value})}><option value="">Другая / не определена</option>{platforms.map(item=><option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
     <label><span>Номер процедуры</span><input value={form.externalId} onChange={event=>setForm({...form,externalId:event.target.value})} placeholder="Определяется из ссылки"/></label>
