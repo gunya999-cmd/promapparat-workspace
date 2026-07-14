@@ -1,5 +1,5 @@
 import React,{useState}from'react';
-import{ArrowRight,Check,X}from'lucide-react';
+import{AlertTriangle,ArrowRight,Check,ExternalLink,Paperclip,X}from'lucide-react';
 import{money}from'../domain/workspace.js';
 import{REJECTION_REASONS}from'../domain/opportunities.js';
 
@@ -9,13 +9,16 @@ export function OpportunityDecisionPanel({selected,platform,data,onQualify,onAcc
  const[rejectReason,setRejectReason]=useState(''),[rejectNote,setRejectNote]=useState('');
  if(!selected)return <aside className="qualification-panel"><div className="qualification-empty">Выберите строку в таблице</div></aside>;
  const reject=()=>{if(!rejectReason)return;onReject(rejectReason,rejectNote);setRejectReason('');setRejectNote('')};
+ const missing=[!selected.customer||selected.customer==='Заказчик не указан'?'заказчик':'',!selected.title||selected.title.startsWith('Новый тендер')?'предмет закупки':'',!selected.deadline?'срок подачи':''].filter(Boolean);
  return <aside className="qualification-panel">
   <div className="qualification-head"><span>{readOnly?'Контроль директора':'Экспресс-анализ'}</span><h2>{selected.customer}</h2><p>{selected.title}</p></div>
-  <div className="qualification-summary"><div><span>Площадка</span><b>{platform?.name||'—'}</b></div><div><span>Сумма</span><b>{money(selected.estimatedAmount,data.settings?.currency||'RUB')}</b></div><div><span>Дедлайн</span><b>{selected.deadline||'—'}</b></div></div>
+  <div className="qualification-summary"><div><span>Площадка</span><b>{platform?.name||'Другая'}</b></div><div><span>Сумма</span><b>{money(selected.estimatedAmount,data.settings?.currency||'RUB')}</b></div><div><span>Дедлайн</span><b>{selected.deadline||'Не указан'}</b></div></div>
+  {missing.length>0&&<div className="capture-incomplete"><AlertTriangle/><div><b>Нужно дополнить карточку</b><span>{missing.join(', ')}. Измените данные прямо в строке таблицы.</span></div></div>}
+  {(selected.sourceUrl||(selected.attachments||[]).length>0)&&<section className="opportunity-source">{selected.sourceUrl&&<a href={selected.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink/><div><b>Открыть оригинал</b><span>{selected.externalId||selected.sourceUrl}</span></div></a>}{(selected.attachments||[]).length>0&&<div className="opportunity-attachments"><Paperclip/><div><b>Приложено файлов: {selected.attachments.length}</b><span>{selected.attachments.map(item=>item.name).join(', ')}</span></div></div>}</section>}
   {readOnly&&<div className="readonly-note">Решение и комментарии редактирует ответственный менеджер.</div>}
   {['profileFit','manufacturerAvailable','timeFeasible','commercialInterest'].map((field,index)=>{const labels=['Наш профиль','Есть производитель','Успеваем по сроку','Коммерчески интересно'];return <div className="qualification-question" key={field}><div><b>{labels[index]}</b><span>{answerLabel(selected[field])}</span></div>{!readOnly&&<div><button className={selected[field]===true?'active yes':''} onClick={()=>onQualify(field,true)}>Да</button><button className={selected[field]===false?'active no':''} onClick={()=>onQualify(field,false)}>Нет</button></div>}</div>})}
   {readOnly?<div className="qualification-notes"><span>Комментарий</span><p>{selected.notes||'Комментария нет'}</p></div>:<label className="qualification-notes">Комментарий<textarea defaultValue={selected.notes||''} key={`${selected.id}-${selected.updatedAt||''}`} onBlur={event=>onQualify('notes',event.target.value)}/></label>}
-  {!readOnly&&!['Взята в работу','Отказ'].includes(selected.status)&&<><button className="accept-opportunity" onClick={onAccept}><Check/>Взять в работу <ArrowRight/></button><div className="reject-box"><select value={rejectReason} onChange={event=>setRejectReason(event.target.value)}><option value="">Причина отказа</option>{REJECTION_REASONS.map(item=><option key={item}>{item}</option>)}</select><input value={rejectNote} onChange={event=>setRejectNote(event.target.value)} placeholder="Комментарий к отказу"/><button disabled={!rejectReason} onClick={reject}><X/>Отказаться</button></div></>}
+  {!readOnly&&!['Взята в работу','Отказ'].includes(selected.status)&&<><button className="accept-opportunity" disabled={missing.length>0} onClick={onAccept}><Check/>{missing.length?'Сначала дополните карточку':'Взять в работу'} <ArrowRight/></button><div className="reject-box"><select value={rejectReason} onChange={event=>setRejectReason(event.target.value)}><option value="">Причина отказа</option>{REJECTION_REASONS.map(item=><option key={item}>{item}</option>)}</select><input value={rejectNote} onChange={event=>setRejectNote(event.target.value)} placeholder="Комментарий к отказу"/><button disabled={!rejectReason} onClick={reject}><X/>Отказаться</button></div></>}
   {selected.status==='Взята в работу'&&<button className="linked-work" onClick={()=>onOpenWork(selected.workId)}>Открыть созданную сделку <ArrowRight/></button>}
   {selected.status==='Отказ'&&<div className="rejected-note"><b>{selected.rejectionReason}</b><span>{selected.rejectionNote}</span></div>}
  </aside>;
