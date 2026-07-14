@@ -1,20 +1,38 @@
-# PromApparat browser capture
+# PromApparat — добавление тендера из браузера
 
-Prototype extension for Chrome and Microsoft Edge on Windows.
+Расширение для Microsoft Edge и Google Chrome на Windows. Передаёт текущую страницу, заголовок вкладки и выделенный текст в быстрый ввод PromApparat.
 
-## Install locally
+## Установка в Microsoft Edge
 
-1. Open `edge://extensions` or `chrome://extensions`.
-2. Enable **Developer mode**.
-3. Choose **Load unpacked**.
-4. Select the `browser-extension` folder.
-5. Pin the PromApparat button to the browser toolbar.
+1. Откройте `edge://extensions`.
+2. Включите **Режим разработчика**.
+3. Нажмите **Загрузить распакованное расширение**.
+4. Выберите папку `browser-extension`.
+5. Закрепите значок PromApparat на панели браузера.
 
-## Use
+Для Chrome используются те же шаги на странице `chrome://extensions`.
 
-- Click the toolbar button to send the current page to PromApparat.
-- Right-click a page and choose **Добавить страницу в PromApparat**.
-- Select text, right-click, and choose **Добавить выделенное в PromApparat**.
-- Keyboard shortcut: `Ctrl+Shift+Y`.
+## Использование
 
-The extension opens PromApparat with the current URL, page title and optional selected text prefilled in the manual tender capture dialog. It does not scrape protected pages or store credentials.
+- Нажмите значок расширения на странице закупки.
+- Либо нажмите правой кнопкой и выберите **Добавить страницу в PromApparat**.
+- Для выделенного текста используйте **Добавить выделенное в PromApparat**.
+- Горячая клавиша: `Ctrl+Shift+Y`.
+
+Расширение найдёт уже открытую вкладку PromApparat и переключится в неё. Новая вкладка создаётся только тогда, когда приложение ещё не открыто.
+
+## Настройка адреса
+
+На странице расширений откройте **Сведения → Параметры расширения**. Там можно изменить адрес приложения, например после перехода с Cloudflare Pages на корпоративный домен.
+
+## Создание ZIP в Windows
+
+Запустите PowerShell в папке расширения:
+
+```powershell
+.\package-extension.ps1
+```
+
+Будет создан файл `promapparat-tender-capture.zip`.
+
+Расширение не обходит авторизацию площадок, не читает пароли и не выполняет скрытый парсинг защищённых страниц.
