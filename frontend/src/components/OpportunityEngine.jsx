@@ -1,4 +1,4 @@
-import React,{useMemo,useState}from'react';
+import React,{useEffect,useMemo,useState}from'react';
 import{Check,Clipboard,Clock3,ExternalLink,History,Play,Plus,Search,ShieldCheck,Target,TrendingUp}from'lucide-react';
 import{beginPlatformCheck,completePlatformCheck,opportunityAnalytics,rejectOpportunity,acceptOpportunity,updateOpportunityQualification}from'../domain/opportunities.js';
 import{OpportunitySpreadsheet}from'./OpportunitySpreadsheet.jsx';
@@ -6,9 +6,10 @@ import{OpportunityDecisionPanel}from'./OpportunityDecisionPanel.jsx';
 
 const dateText=value=>value?new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(value)):'никогда';
 
-export function OpportunityEngine({data,setData,currentUser,onOpenWork,onAddTender}){
+export function OpportunityEngine({data,setData,currentUser,onOpenWork,onAddTender,focusOpportunityId=''}){
  const readOnly=currentUser?.role==='director',latest=data.opportunities?.[0];
  const[view,setView]=useState(latest?.captureMethod==='manual'?'opportunities':'route'),[selectedId,setSelectedId]=useState(latest?.id||null),[checkingId,setCheckingId]=useState(null),[error,setError]=useState(''),[checkDraft,setCheckDraft]=useState({reviewedCount:'',foundCount:'',notes:''});
+ useEffect(()=>{if(focusOpportunityId&&(data.opportunities||[]).some(item=>item.id===focusOpportunityId)){setSelectedId(focusOpportunityId);setView('opportunities')}},[focusOpportunityId,data.opportunities]);
  const analytics=useMemo(()=>opportunityAnalytics(data),[data]),platformMap=useMemo(()=>new Map((data.platforms||[]).map(item=>[item.id,item])),[data.platforms]);
  const selected=(data.opportunities||[]).find(item=>item.id===selectedId)||null;
  const run=operation=>{if(readOnly)return;try{setData(current=>operation(current));setError('')}catch(exception){setError(exception?.message||'Не удалось выполнить действие')}};
