@@ -18,5 +18,6 @@ import'./r4-role-fixes.css';
 import'./r4-copy-fixes.css';
 import'./tender-capture.css';
 import'./windows-workflow.css';
+import'./attachment-flow.css';
 
 createRoot(document.getElementById('root')).render(<App/>);
