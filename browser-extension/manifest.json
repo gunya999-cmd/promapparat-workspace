@@ -1,11 +1,12 @@
 {
   "manifest_version": 3,
   "name": "PromApparat — добавить тендер",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Передаёт текущую страницу или выделенный текст в быстрый ввод PromApparat.",
-  "permissions": ["activeTab", "contextMenus", "tabs"],
+  "permissions": ["activeTab", "contextMenus", "tabs", "storage"],
   "background": {"service_worker": "background.js"},
   "action": {"default_title": "Добавить тендер в PromApparat"},
+  "options_page": "options.html",
   "commands": {
     "capture-tender": {
       "suggested_key": {"default": "Ctrl+Shift+Y"},
