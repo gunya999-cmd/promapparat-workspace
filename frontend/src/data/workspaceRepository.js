@@ -1,12 +1,12 @@
 import{LEGACY_STORAGE_KEYS,STORAGE_KEY,createDemoWorkspace,normalizeWorkspace}from'../domain/workspace.js';
 import{CURRENT_SCHEMA_VERSION,validateWorkspace}from'../domain/schema.js';
+import{normalizeWorkspaceUsers}from'../domain/users.js';
 
 const BACKUP_KEY=`${STORAGE_KEY}_backup`;
 const CORRUPT_KEY=`${STORAGE_KEY}_corrupt`;
 const COLLECTIONS=['works','suppliers','positions','documents','tasks','customers','events','formulas','formulaImports','specificationImports','platforms','opportunities','platformChecks','users'];
 const preserveCollections=(normalized,source)=>{const next={...normalized};for(const key of COLLECTIONS)if(Array.isArray(source?.[key]))next[key]=source[key];return next};
-const normalizeRoles=data=>{const role=value=>['admin','head','director'].includes(value)?'director':'manager',users=(data.users||[]).map(user=>({...user,role:role(user.role)})),currentUser=data.currentUser?{...data.currentUser,role:role(data.currentUser.role)}:(users[0]||null);return{...data,users,currentUser}};
-const prepare=data=>normalizeRoles(preserveCollections(normalizeWorkspace(data),data));
+const prepare=data=>normalizeWorkspaceUsers(preserveCollections(normalizeWorkspace(data),data));
 
 export class LocalWorkspaceRepository{
  readRaw(){let raw=localStorage.getItem(STORAGE_KEY);if(!raw)for(const key of LEGACY_STORAGE_KEYS){raw=localStorage.getItem(key);if(raw)break}return raw}
