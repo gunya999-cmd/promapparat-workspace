@@ -1,7 +1,12 @@
-const APP_URL='https://promapparat-workspace.pages.dev/';
+const DEFAULT_APP_URL='https://promapparat-workspace.pages.dev/';
 
-function captureUrl({url='',title='',text=''}){
- const target=new URL(APP_URL);
+async function getAppUrl(){
+ const{appUrl}=await chrome.storage.sync.get({appUrl:DEFAULT_APP_URL});
+ try{return new URL(appUrl||DEFAULT_APP_URL).toString()}catch{return DEFAULT_APP_URL}
+}
+
+function captureUrl(appUrl,{url='',title='',text=''}){
+ const target=new URL(appUrl);
  target.searchParams.set('capture','1');
  if(url)target.searchParams.set('url',url);
  if(title)target.searchParams.set('title',title);
@@ -11,10 +16,21 @@ function captureUrl({url='',title='',text=''}){
 
 async function openCapture(tab,text=''){
  if(!tab)return;
- await chrome.tabs.create({url:captureUrl({url:tab.url||'',title:tab.title||'',text})});
+ const appUrl=await getAppUrl(),targetUrl=captureUrl(appUrl,{url:tab.url||'',title:tab.title||'',text}),origin=new URL(appUrl).origin;
+ const tabs=await chrome.tabs.query({});
+ const existing=tabs.find(item=>item.id&&item.url?.startsWith(origin));
+ if(existing){
+  await chrome.tabs.update(existing.id,{url:targetUrl,active:true});
+  if(existing.windowId)await chrome.windows.update(existing.windowId,{focused:true});
+  return;
+ }
+ await chrome.tabs.create({url:targetUrl});
 }
 
-chrome.runtime.onInstalled.addListener(()=>{
+chrome.runtime.onInstalled.addListener(async()=>{
+ const stored=await chrome.storage.sync.get('appUrl');
+ if(!stored.appUrl)await chrome.storage.sync.set({appUrl:DEFAULT_APP_URL});
+ await chrome.contextMenus.removeAll();
  chrome.contextMenus.create({id:'promapparat-page',title:'Добавить страницу в PromApparat',contexts:['page']});
  chrome.contextMenus.create({id:'promapparat-selection',title:'Добавить выделенное в PromApparat',contexts:['selection']});
 });
