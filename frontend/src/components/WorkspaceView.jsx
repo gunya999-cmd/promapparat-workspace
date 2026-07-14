@@ -1,4 +1,4 @@
-import React,{useMemo,useState}from'react';
+import React,{useEffect,useMemo,useState}from'react';
 import{AlertTriangle,BarChart3,Boxes,CheckCircle2,CircleDollarSign,Clock3,FileText,FileUp,Files,History,Plus,Search,ShieldAlert,ShieldCheck,Table2,Truck,UserRound,UsersRound}from'lucide-react';
 import{daysLeft,money,pct}from'../domain/workspace.js';
 import{addPositionCommand}from'../domain/commands.js';
@@ -10,9 +10,10 @@ const stages=['Новая','Анализ','Поиск поставщиков','�
 const navItems=[{id:'overview',label:'Обзор',Icon:BarChart3,ready:true},{id:'positions',label:'Позиции',Icon:Table2,ready:true},{id:'suppliers',label:'Поставщики',Icon:UsersRound,ready:false},{id:'quote',label:'КП',Icon:FileText,ready:false},{id:'documents',label:'Документы',Icon:Files,ready:true},{id:'import',label:'Импорт Excel',Icon:FileUp,ready:true},{id:'production',label:'Производство',Icon:Boxes,ready:false},{id:'logistics',label:'Логистика',Icon:Truck,ready:false},{id:'history',label:'История',Icon:History,ready:true}];
 const deadlineLabel=value=>{const days=daysLeft(value);if(days===999)return'срок не указан';if(days<0)return`просрочен на ${Math.abs(days)} дн.`;if(days===0)return'сегодня';if(days===1)return'завтра';return`через ${days} дн.`};
 
-export function WorkspaceView({work,data,setData,selectedId,setSelectedId,currentUser}){
+export function WorkspaceView({work,data,setData,selectedId,setSelectedId,currentUser,initialTab=''}){
  const isDirector=currentUser?.role==='director';
  const[draft,setDraft]=useState({group:'',name:'',qty:1,unit:'шт'}),[tab,setTab]=useState(isDirector?'overview':'positions'),[error,setError]=useState(''),[query,setQuery]=useState(''),currency=data.settings?.currency||'RUB';
+ useEffect(()=>{const requested=navItems.some(item=>item.ready&&item.id===initialTab)?initialTab:(isDirector?'overview':'positions');setTab(isDirector&&requested==='import'?'overview':requested);setSelectedId(null)},[work.id,initialTab,isDirector]);
  const docs=(data.documents||[]).filter(item=>item.workId===work.id),events=(data.events||[]).filter(item=>item.workId===work.id),imports=(data.specificationImports||[]).filter(item=>item.workId===work.id&&!item.rolledBackAt);
  const supplierCount=new Set(work.positions.flatMap(position=>position.offers.map(offer=>offer.supplierId).filter(Boolean))).size;
  const stageIndex=Math.max(0,stages.findIndex(stage=>stage===work.state)),riskPositions=work.positions.filter(position=>position.warnings.length);
