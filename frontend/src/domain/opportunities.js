@@ -23,6 +23,7 @@ const actorName=actor=>actor?.name||'Пользователь';
 const now=()=>new Date().toISOString();
 const event=(type,title,detail,actor,extra={})=>({id:uid(),type,title,detail,author:actorName(actor),actorId:actor?.id||null,entityType:'opportunity',source:'ui',createdAt:now(),...extra});
 const today=value=>String(value||'').slice(0,10)===new Date().toISOString().slice(0,10);
+const normalizedUrl=value=>String(value||'').trim().replace(/#.*$/,'').replace(/\/$/,'');
 
 export function beginPlatformCheck(state,platformId,actor){
  const platform=(state.platforms||[]).find(item=>item.id===platformId);if(!platform)throw new Error('Площадка не найдена');
@@ -41,9 +42,9 @@ export function markPlatformChecked(state,platformId,actor){return completePlatf
 
 export function createOpportunity(state,draft,actor){
  const customer=String(draft.customer||'').trim(),title=String(draft.title||'').trim();if(!customer||!title)throw new Error('Заказчик и предмет закупки обязательны');
- const duplicate=(state.opportunities||[]).find(item=>item.platformId===draft.platformId&&String(item.externalId||'').trim()&&String(item.externalId||'').trim()===String(draft.externalId||'').trim());if(duplicate)throw new Error('Эта закупка уже добавлена из выбранной площадки');
- const opportunity={id:uid(),platformId:draft.platformId||'',externalId:String(draft.externalId||'').trim(),customer,title,estimatedAmount:Math.max(0,Number(draft.estimatedAmount||0)),deadline:draft.deadline||'',status:'Новая',owner:draft.owner||actorName(actor),profileFit:null,manufacturerAvailable:null,timeFeasible:null,commercialInterest:null,notes:String(draft.notes||''),createdAt:now(),createdBy:actor?.id||null};
- return{state:{...state,opportunities:[opportunity,...(state.opportunities||[])],events:[event('opportunity','Найдена новая возможность',`${customer} · ${title}`,actor,{entityId:opportunity.id,newValue:opportunity}),...(state.events||[])]},opportunity};
+ const sourceUrl=normalizedUrl(draft.sourceUrl),externalId=String(draft.externalId||'').trim(),duplicate=(state.opportunities||[]).find(item=>(sourceUrl&&normalizedUrl(item.sourceUrl)===sourceUrl)||(draft.platformId&&externalId&&item.platformId===draft.platformId&&String(item.externalId||'').trim()===externalId));if(duplicate)throw new Error('Этот тендер уже добавлен в систему');
+ const opportunity={id:uid(),platformId:draft.platformId||'',externalId,customer,title,estimatedAmount:Math.max(0,Number(draft.estimatedAmount||0)),deadline:draft.deadline||'',status:'Новая',owner:draft.owner||actorName(actor),profileFit:null,manufacturerAvailable:null,timeFeasible:null,commercialInterest:null,notes:String(draft.notes||''),sourceUrl,captureMethod:draft.captureMethod||'manual',captureIncomplete:!!draft.captureIncomplete,attachments:Array.isArray(draft.attachments)?draft.attachments:[],originalCaptureText:String(draft.originalCaptureText||''),createdAt:now(),createdBy:actor?.id||null};
+ return{state:{...state,opportunities:[opportunity,...(state.opportunities||[])],events:[event('opportunity','Добавлен новый тендер',`${customer} · ${title}`,actor,{entityId:opportunity.id,newValue:opportunity,source:draft.captureMethod||'ui'}),...(state.events||[])]},opportunity};
 }
 
 export function updateOpportunityQualification(state,id,patch,actor){
@@ -54,12 +55,12 @@ export function updateOpportunityQualification(state,id,patch,actor){
 
 export function updateOpportunityFields(state,id,patch,actor){
  const current=(state.opportunities||[]).find(item=>item.id===id);if(!current)throw new Error('Возможность не найдена');
- const allowed=['customer','title','externalId','platformId','estimatedAmount','deadline','owner','notes'];
+ const allowed=['customer','title','externalId','platformId','estimatedAmount','deadline','owner','notes','sourceUrl'];
  const safe={};for(const key of allowed)if(key in patch)safe[key]=key==='estimatedAmount'?Math.max(0,Number(patch[key]||0)):String(patch[key]??'');
  if('customer'in safe&&!safe.customer.trim())throw new Error('Заказчик обязателен');if('title'in safe&&!safe.title.trim())throw new Error('Предмет закупки обязателен');
- const next={...current,...safe,updatedAt:now(),updatedBy:actor?.id||null};
+ const next={...current,...safe,captureIncomplete:!(safe.customer??current.customer)||!(safe.title??current.title)||!(safe.deadline??current.deadline),updatedAt:now(),updatedBy:actor?.id||null};
  const changed=Object.keys(safe).filter(key=>String(current[key]??'')!==String(next[key]??''));if(!changed.length)return state;
- return{...state,opportunities:state.opportunities.map(item=>item.id===id?next:item),events:[event('opportunity','Изменена возможность',`${next.customer} · ${changed.join(', ')}`,actor,{entityId:id,oldValue:current,newValue:next}),...(state.events||[])]};
+ return{...state,opportunities:state.opportunities.map(item=>item.id===id?next:item),events:[event('opportunity','Изменен тендер',`${next.customer} · ${changed.join(', ')}`,actor,{entityId:id,oldValue:current,newValue:next}),...(state.events||[])]};
 }
 
 export function bulkUpdateOpportunities(state,ids,patch,actor){
@@ -76,7 +77,7 @@ export function rejectOpportunity(state,id,reason,note,actor){
 
 export function acceptOpportunity(state,id,actor){
  const current=(state.opportunities||[]).find(item=>item.id===id);if(!current)throw new Error('Возможность не найдена');if(current.status==='Взята в работу')throw new Error('Возможность уже взята в работу');
- const created=createWorkCommand(state,{customer:current.customer,title:current.title,objectName:current.title,source:'Тендер',deadline:current.deadline,manager:current.owner||actorName(actor)},actor),work={...created.work,opportunityId:id,sourcePlatformId:current.platformId,externalTenderId:current.externalId};
+ const created=createWorkCommand(state,{customer:current.customer,title:current.title,objectName:current.title,source:'Тендер',deadline:current.deadline,manager:current.owner||actorName(actor)},actor),work={...created.work,opportunityId:id,sourcePlatformId:current.platformId,externalTenderId:current.externalId,sourceUrl:current.sourceUrl||'',tenderAttachments:current.attachments||[]};
  const works=created.state.works.map(item=>item.id===work.id?work:item),next={...current,status:'Взята в работу',workId:work.id,decidedAt:now(),decidedBy:actor?.id||null};
  return{state:{...created.state,works,opportunities:(created.state.opportunities||state.opportunities||[]).map(item=>item.id===id?next:item),events:[event('conversion','Возможность взята в работу',`${next.customer} → ${work.code}`,actor,{entityId:id,workId:work.id,newValue:{workId:work.id}}),...(created.state.events||[])]},work,opportunity:next};
 }
