@@ -23,7 +23,7 @@ import{SystemSettings}from'./components/SystemSettings.jsx';
 export default function App(){
  const workspace=useWorkspace(),{data,setData}=workspace,captureHandled=useRef(false);
  const currentUser=data.currentUser||{id:'u-director',name:'Директор',role:'director'},isDirector=currentUser.role==='director';
- const[section,setSection]=useState(isDirector?'director':'manager'),[activeId,setActiveId]=useState('w1'),[selectedId,setSelectedId]=useState(null),[query,setQuery]=useState(''),[showNew,setShowNew]=useState(false),[showTenderCapture,setShowTenderCapture]=useState(false),[captureInput,setCaptureInput]=useState(''),[focusOpportunityId,setFocusOpportunityId]=useState(''),[notice,setNotice]=useState('');
+ const[section,setSection]=useState(isDirector?'director':'manager'),[activeId,setActiveId]=useState('w1'),[workInitialTab,setWorkInitialTab]=useState(''),[selectedId,setSelectedId]=useState(null),[query,setQuery]=useState(''),[showNew,setShowNew]=useState(false),[showTenderCapture,setShowTenderCapture]=useState(false),[captureInput,setCaptureInput]=useState(''),[focusOpportunityId,setFocusOpportunityId]=useState(''),[notice,setNotice]=useState('');
  useEffect(()=>{setSection(isDirector?'director':'manager');setSelectedId(null);setShowNew(false);setShowTenderCapture(false)},[currentUser.id,currentUser.role,isDirector]);
  useEffect(()=>{if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
  useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),3600);return()=>clearTimeout(timer)},[notice]);
@@ -36,8 +36,8 @@ export default function App(){
  const roleWorks=isDirector?works:works.filter(work=>work.manager===currentUser.name);
  const filtered=roleWorks.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
  const active=roleWorks.find(work=>work.id===activeId)||roleWorks[0]||null,selected=active?.positions.find(position=>position.id===selectedId)||null;
- const createWork=form=>{if(isDirector)return;try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setSection('works');setShowNew(false);setNotice('Сделка создана')}catch(error){setNotice(error?.message||'Не удалось создать сделку')}};
- const openWork=id=>{setActiveId(id);setSelectedId(null);setSection('works')};
+ const createWork=form=>{if(isDirector)return;try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setWorkInitialTab('overview');setSection('works');setShowNew(false);setNotice('Сделка создана')}catch(error){setNotice(error?.message||'Не удалось создать сделку')}};
+ const openWork=(id,initialTab='')=>{setActiveId(id);setWorkInitialTab(initialTab);setSelectedId(null);setSection('works')};
  const navigate=value=>{if(!isDirector&&protectedSections.has(value))value='manager';if(isDirector&&value==='manager')value='director';setSection(value);setSelectedId(null)};
  const switchRole=role=>{const user=userForRole(data,role);if(!user)return;setData(current=>({...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}));setNotice(role==='manager'?`Открыт рабочий стол: ${user.name}`:'Открыта сводка компании')};
  const openTenderCapture=()=>{if(isDirector)return;setCaptureInput('');setShowTenderCapture(true)};
@@ -53,7 +53,7 @@ export default function App(){
    {visibleSection==='director'&&isDirector&&<DirectorView data={data} works={works} onOpenWork={openWork}/>} 
    {visibleSection==='finance'&&isDirector&&<DirectorFinanceCenter data={data} setData={setData} works={works} onOpenWork={openWork} currentUser={currentUser}/>} 
    {visibleSection==='dashboard'&&!isDirector&&<DashboardView works={roleWorks} data={data} currentUser={currentUser} settings={data.settings} onOpenWork={openWork}/>} 
-   {visibleSection==='works'&&active&&<WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser}/>} 
+   {visibleSection==='works'&&active&&<WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser} initialTab={workInitialTab}/>} 
    {visibleSection==='suppliers'&&<SuppliersView data={data} setData={setData} currentUser={currentUser}/>} 
    {visibleSection==='formulas'&&isDirector&&<FormulaDashboard data={data} setData={setData} currentUser={currentUser}/>} 
    {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
