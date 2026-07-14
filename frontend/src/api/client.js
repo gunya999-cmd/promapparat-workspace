@@ -30,6 +30,9 @@ export async function login(email,password){const session=await apiRequest('/api
 export async function logout(){const session=getSession();try{if(session?.refreshToken)await apiRequest('/api/auth/logout',{method:'POST',body:JSON.stringify({refreshToken:session.refreshToken})},false)}finally{saveSession(null)}}
 export const getWorkspace=()=>apiRequest('/api/workspace');
 export const saveWorkspace=(baseRevision,data)=>apiRequest('/api/workspace',{method:'PUT',body:JSON.stringify({baseRevision,data})});
+export const listUsers=()=>apiRequest('/api/users');
+export const createUser=data=>apiRequest('/api/users',{method:'POST',body:JSON.stringify(data)});
+export const updateUser=(id,data)=>apiRequest(`/api/users/${id}`,{method:'PATCH',body:JSON.stringify(data)});
 export async function uploadServerFiles(files,entityType,entityId){const body=new FormData();for(const file of files||[])body.append('files',file);body.append('entityType',entityType||'');body.append('entityId',entityId||'');return apiRequest('/api/files',{method:'POST',body})}
 export async function getServerFile(id,name='file'){const response=await serverFileResponse(id),blob=await response.blob();return new File([blob],name,{type:blob.type||response.headers.get('content-type')||'application/octet-stream'})}
 export async function downloadServerFile(id,name='file'){const response=await serverFileResponse(id),blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
