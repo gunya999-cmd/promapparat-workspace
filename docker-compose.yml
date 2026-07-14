@@ -10,7 +10,6 @@ services:
       - "5432:5432"
     volumes:
       - promapparat_pgdata:/var/lib/postgresql/data
-      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U promapparat -d promapparat"]
       interval: 5s
@@ -21,13 +20,21 @@ services:
     build: ./backend
     container_name: promapparat_backend
     environment:
-      DATABASE_URL: postgresql+psycopg://promapparat:promapparat_local_password@db:5432/promapparat
-      APP_ENV: local
+      NODE_ENV: development
+      PORT: 8787
+      DATABASE_URL: postgres://promapparat:promapparat_local_password@db:5432/promapparat
+      DATABASE_SSL: "false"
+      JWT_SECRET: local-development-secret-change-before-production-2026
+      CORS_ORIGINS: http://localhost:5173,http://localhost:3000
+      FILE_STORAGE_DIR: /app/storage
+      SEED_DIRECTOR_EMAIL: director@promapparat.local
+      SEED_DIRECTOR_PASSWORD: ChangeMe-Director-2026
+      SEED_MANAGER_EMAIL: manager@promapparat.local
+      SEED_MANAGER_PASSWORD: ChangeMe-Manager-2026
     ports:
-      - "8000:8000"
+      - "8787:8787"
     volumes:
-      - ./backend/app:/app/app
-      - ./uploads:/app/uploads
+      - promapparat_files:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -36,11 +43,12 @@ services:
     build: ./frontend
     container_name: promapparat_frontend
     environment:
-      VITE_API_URL: http://localhost:8000
+      VITE_API_URL: http://localhost:8787
     ports:
-      - "3000:3000"
+      - "5173:5173"
     volumes:
       - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
       - ./frontend/package.json:/app/package.json
       - ./frontend/vite.config.js:/app/vite.config.js
@@ -49,3 +57,4 @@ services:
 
 volumes:
   promapparat_pgdata:
+  promapparat_files:
