@@ -1,6 +1,6 @@
 import React from'react';
 import{createRoot}from'react-dom/client';
-import App from'./App.jsx';
+import Root from'./Root.jsx';
 import'./styles.css';
 import'./dashboard.css';
 import'./stabilization.css';
@@ -20,4 +20,4 @@ import'./tender-capture.css';
 import'./windows-workflow.css';
 import'./attachment-flow.css';
 
-createRoot(document.getElementById('root')).render(<App/>);
+createRoot(document.getElementById('root')).render(<Root/>);
