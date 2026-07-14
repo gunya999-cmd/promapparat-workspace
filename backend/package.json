@@ -1,0 +1,26 @@
+{
+  "name": "promapparat-workspace-backend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js",
+    "migrate": "node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "argon2": "^0.41.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.0",
+    "express": "^5.0.0",
+    "helmet": "^8.0.0",
+    "jose": "^6.0.0",
+    "multer": "^2.0.0",
+    "pg": "^8.13.0"
+  }
+}
