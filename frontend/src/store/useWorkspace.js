@@ -7,14 +7,18 @@ export function useWorkspace({serverSession=null}={}){
  const remoteEnabled=serverMode&&!!serverSession;
  const[data,setData]=useState(()=>normalizeWorkspaceUsers(workspaceRepository.load()));
  const[storageError,setStorageError]=useState(''),[loading,setLoading]=useState(remoteEnabled),[syncState,setSyncState]=useState(remoteEnabled?'loading':'local');
- const suppressSave=useRef(false),revisionRef=useRef(Number(data.meta?.revision||0)),remoteReady=useRef(false),pendingData=useRef(null),saving=useRef(false),timer=useRef(null),conflict=useRef(false);
+ const suppressSave=useRef(false),revisionRef=useRef(Number(data.meta?.revision||0)),remoteReady=useRef(false),pendingData=useRef(null),saving=useRef(false),timer=useRef(null),conflict=useRef(false),dataRef=useRef(data);
+ useEffect(()=>{dataRef.current=data},[data]);
 
- const replaceData=useCallback(value=>{const normalized=normalizeWorkspaceUsers(value);suppressSave.current=true;setData(normalized)},[]);
+ const replaceData=useCallback(value=>{const normalized=normalizeWorkspaceUsers(value);suppressSave.current=true;dataRef.current=normalized;setData(normalized)},[]);
  const loadRemote=useCallback(async()=>{if(!remoteEnabled)return;setLoading(true);setSyncState('loading');conflict.current=false;try{const result=await getWorkspace();revisionRef.current=Number(result.revision||0);remoteReady.current=true;replaceData(result.data);setStorageError('');setSyncState('synced')}catch(error){setStorageError(error?.message||'Не удалось загрузить данные с сервера');setSyncState('error')}finally{setLoading(false)}},[remoteEnabled,serverSession?.user?.id,replaceData]);
 
  const flushRemote=useCallback(async()=>{if(!remoteEnabled||!remoteReady.current||saving.current||conflict.current||!pendingData.current)return;const snapshot=pendingData.current;pendingData.current=null;saving.current=true;setSyncState('saving');try{const result=await saveWorkspace(revisionRef.current,snapshot);revisionRef.current=Number(result.revision||revisionRef.current);setStorageError('');setSyncState('synced');if(!pendingData.current)replaceData(result.data)}catch(error){if(error?.status===409){pendingData.current=snapshot;conflict.current=true;setSyncState('conflict');setStorageError('Данные изменены другим пользователем. Обновите рабочее пространство перед продолжением.')}else{pendingData.current=snapshot;setSyncState('error');setStorageError(error?.message||'Не удалось сохранить данные на сервере')}}finally{saving.current=false;if(pendingData.current&&!conflict.current){clearTimeout(timer.current);timer.current=setTimeout(flushRemote,800)}}},[remoteEnabled,replaceData]);
 
+ const pollRemote=useCallback(async()=>{if(!remoteEnabled||!remoteReady.current||saving.current||conflict.current)return;try{const result=await getWorkspace(),revision=Number(result.revision||0),usersChanged=JSON.stringify(result.data?.users||[])!==JSON.stringify(dataRef.current?.users||[]);if(revision===revisionRef.current&&!usersChanged)return;if(pendingData.current){if(revision>revisionRef.current){conflict.current=true;setSyncState('conflict');setStorageError('На сервере появились изменения другого пользователя. Сначала обновите рабочее пространство.')}return}revisionRef.current=revision;replaceData(result.data);setStorageError('');setSyncState('synced')}catch(error){setSyncState('error');setStorageError(error?.message||'Не удалось проверить обновления сервера')}},[remoteEnabled,replaceData]);
+
  useEffect(()=>{if(remoteEnabled){remoteReady.current=false;pendingData.current=null;clearTimeout(timer.current);loadRemote();return}setLoading(false);setSyncState('local')},[remoteEnabled,serverSession?.user?.id,loadRemote]);
+ useEffect(()=>{if(!remoteEnabled)return;const interval=setInterval(pollRemote,15000),visible=()=>{if(document.visibilityState==='visible')pollRemote()};document.addEventListener('visibilitychange',visible);return()=>{clearInterval(interval);document.removeEventListener('visibilitychange',visible)}},[remoteEnabled,pollRemote]);
 
  useEffect(()=>{
   if(suppressSave.current){suppressSave.current=false;return}
