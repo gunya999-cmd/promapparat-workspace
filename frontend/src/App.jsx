@@ -25,17 +25,17 @@ export default function App(){
  const[section,setSection]=useState(isDirector?'director':'manager'),[activeId,setActiveId]=useState('w1'),[selectedId,setSelectedId]=useState(null),[query,setQuery]=useState(''),[showNew,setShowNew]=useState(false),[notice,setNotice]=useState('');
  useEffect(()=>{setSection(isDirector?'director':'manager');setSelectedId(null);setShowNew(false)},[currentUser.id,currentUser.role,isDirector]);
  useEffect(()=>{if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
- useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),2200);return()=>clearTimeout(timer)},[notice]);
+ useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),2600);return()=>clearTimeout(timer)},[notice]);
  const protectedSections=new Set(['director','finance','formulas','system']);
  const visibleSection=!isDirector&&protectedSections.has(section)?'manager':isDirector&&section==='manager'?'director':section;
  const works=useMemo(()=>data.works.map(work=>calculateWork(work,data.positions,data.suppliers,data.settings,data.formulas)),[data]);
  const roleWorks=isDirector?works:works.filter(work=>work.manager===currentUser.name);
  const filtered=roleWorks.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
  const active=roleWorks.find(work=>work.id===activeId)||roleWorks[0]||null,selected=active?.positions.find(position=>position.id===selectedId)||null;
- const createWork=form=>{if(isDirector)return;try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setSection('works');setShowNew(false);setNotice('Сделка создана')}catch(error){window.alert(error?.message||'Не удалось создать сделку')}};
+ const createWork=form=>{if(isDirector)return;try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setSection('works');setShowNew(false);setNotice('Сделка создана')}catch(error){setNotice(error?.message||'Не удалось создать сделку')}};
  const openWork=id=>{setActiveId(id);setSelectedId(null);setSection('works')};
  const navigate=value=>{if(!isDirector&&protectedSections.has(value))value='manager';if(isDirector&&value==='manager')value='director';setSection(value);setSelectedId(null)};
- const switchRole=role=>{const user=userForRole(data,role);if(!user)return;setData(current=>({...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}));setNotice(role==='manager'?`Открыт рабочий стол: ${user.name}`:'Открыта панель директора')};
+ const switchRole=role=>{const user=userForRole(data,role);if(!user)return;setData(current=>({...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}));setNotice(role==='manager'?`Открыт рабочий стол: ${user.name}`:'Открыта сводка компании')};
  const showContext=visibleSection==='works'&&active;
  return <div className={`v2-shell ${showContext?'with-context':''}`}>
   <WorkRail works={filtered} activeId={active?.id} onSelect={openWork} onNew={()=>!isDirector&&setShowNew(true)} query={query} setQuery={setQuery} section={visibleSection} setSection={navigate} currentUser={currentUser} isAdmin={isDirector}/>
@@ -51,7 +51,7 @@ export default function App(){
    {visibleSection==='formulas'&&isDirector&&<FormulaDashboard data={data} setData={setData} currentUser={currentUser}/>} 
    {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
   </div>
-  {showContext&&(selected&&!isDirector?<PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/>:<WorkContextPanel work={active} data={data} onSelectPosition={isDirector?()=>{}:setSelectedId}/>)}
+  {showContext&&(selected&&!isDirector?<PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/>:<WorkContextPanel work={active} data={data} readOnly={isDirector} onSelectPosition={setSelectedId}/>)}
   {showNew&&!isDirector&&<NewWorkModal currentUser={currentUser} onClose={()=>setShowNew(false)} onSave={createWork}/>} 
   {notice&&<div className="app-toast" role="status">{notice}</div>}
  </div>;
