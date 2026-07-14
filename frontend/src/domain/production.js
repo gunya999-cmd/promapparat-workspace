@@ -7,6 +7,7 @@ const now=()=>new Date().toISOString();
 const workBatches=(state,workId)=>state.positions.filter(position=>position.workId===workId).flatMap(position=>(position.batches||[]).map(batch=>({position,batch})));
 const nextWorkProductionState=(state,workId)=>{
  const entries=workBatches(state,workId),active=entries.filter(({batch})=>batch.status!=='Отгружено'),ready=entries.filter(({batch})=>batch.status==='Готово'),inProduction=entries.filter(({batch})=>batch.status==='В производстве'),nearest=active.map(({batch})=>batch.readyDate).filter(Boolean).sort()[0]||todayPlus(1);
+ if(!entries.length)return{state:'Производство',nextAction:'Создать производственные партии',nextActionDate:todayPlus(1)};
  if(ready.length)return{state:'Отгрузка',nextAction:`Организовать отгрузку: ${ready.length} готовых партий`,nextActionDate:todayPlus(1)};
  if(inProduction.length)return{state:'Производство',nextAction:`Контролировать производство: ${inProduction.length} партий`,nextActionDate:nearest};
  if(active.length)return{state:'Производство',nextAction:'Запустить запланированные партии в производство',nextActionDate:nearest};
