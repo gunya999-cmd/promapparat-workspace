@@ -19,6 +19,8 @@ async function authorizedFetch(path,options={},retry=true){
  return response;
 }
 
+async function serverFileResponse(id){const response=await authorizedFetch(`/api/files/${id}`);if(!response.ok){const payload=await response.json().catch(()=>({}));throw new Error(payload.message||'Не удалось получить файл')}return response}
+
 export async function apiRequest(path,options={},retry=true){
  const response=await authorizedFetch(path,options,retry);if(response.status===204)return null;
  const payload=await response.json().catch(()=>({}));if(!response.ok){const error=new Error(payload.message||`HTTP ${response.status}`);error.status=response.status;error.code=payload.error;error.payload=payload;throw error}return payload;
@@ -29,5 +31,6 @@ export async function logout(){const session=getSession();try{if(session?.refres
 export const getWorkspace=()=>apiRequest('/api/workspace');
 export const saveWorkspace=(baseRevision,data)=>apiRequest('/api/workspace',{method:'PUT',body:JSON.stringify({baseRevision,data})});
 export async function uploadServerFiles(files,entityType,entityId){const body=new FormData();for(const file of files||[])body.append('files',file);body.append('entityType',entityType||'');body.append('entityId',entityId||'');return apiRequest('/api/files',{method:'POST',body})}
-export async function downloadServerFile(id,name='file'){const response=await authorizedFetch(`/api/files/${id}`);if(!response.ok){const payload=await response.json().catch(()=>({}));throw new Error(payload.message||'Не удалось скачать файл')}const blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+export async function getServerFile(id,name='file'){const response=await serverFileResponse(id),blob=await response.blob();return new File([blob],name,{type:blob.type||response.headers.get('content-type')||'application/octet-stream'})}
+export async function downloadServerFile(id,name='file'){const response=await serverFileResponse(id),blob=await response.blob(),url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 export const deleteServerFile=id=>apiRequest(`/api/files/${id}`,{method:'DELETE'});
