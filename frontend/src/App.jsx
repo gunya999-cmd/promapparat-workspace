@@ -52,7 +52,7 @@ export default function App(){
    {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
   </div>
   {showContext&&(selected&&!isDirector?<PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/>:<WorkContextPanel work={active} data={data} onSelectPosition={isDirector?()=>{}:setSelectedId}/>)}
-  {showNew&&!isDirector&&<NewWorkModal onClose={()=>setShowNew(false)} onSave={createWork}/>} 
+  {showNew&&!isDirector&&<NewWorkModal currentUser={currentUser} onClose={()=>setShowNew(false)} onSave={createWork}/>} 
   {notice&&<div className="app-toast" role="status">{notice}</div>}
  </div>;
 }
