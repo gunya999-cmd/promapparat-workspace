@@ -7,18 +7,18 @@ const deadlineLabel=value=>{const days=daysLeft(value);if(days<0)return`прос
 export function WorkRail({works,activeId,onSelect,onNew,query,setQuery,section,setSection,currentUser,isAdmin}){
  const isDirector=isAdmin||currentUser?.role==='director',roleLabel=isDirector?'Директор':'Менеджер';
  return <aside className="rail">
-  <div className="brand"><div className="logo">PA</div><div><b>PromApparat</b><span>{isDirector?'Контур директора':'Контур менеджера'}</span></div></div>
-  <div className={`rail-mode-badge ${isDirector?'director':'manager'}`}>{isDirector?<ShieldCheck/>:<UserRound/>}<span>Режим: {roleLabel}</span></div>
+  <div className="brand"><div className="logo">PA</div><div><b>PromApparat</b><span>Workspace R4 Alpha</span></div></div>
+  <div className={`rail-mode-badge ${isDirector?'director':'manager'}`}>{isDirector?<ShieldCheck/>:<UserRound/>}<span>Рабочее место: {roleLabel}</span></div>
   <div className="rail-nav">
    {isDirector?<>
-    <button className={section==='director'?'active':''} onClick={()=>setSection('director')}><TrendingUp/>Панель директора</button>
+    <button className={section==='director'?'active':''} onClick={()=>setSection('director')}><TrendingUp/>Сводка компании</button>
     <button className={section==='finance'?'active':''} onClick={()=>setSection('finance')}><Landmark/>Финансовый центр</button>
-    <div className="rail-divider"><span>Операционный контроль</span></div>
+    <div className="rail-divider"><span>Контроль операций</span></div>
     <button className={section==='works'?'active':''} onClick={()=>setSection('works')}><BriefcaseBusiness/>Все сделки</button>
-    <button className={section==='opportunities'?'active':''} onClick={()=>setSection('opportunities')}><Compass/>Поиск тендеров</button>
+    <button className={section==='opportunities'?'active':''} onClick={()=>setSection('opportunities')}><Compass/>Тендеры и площадки</button>
     <button className={section==='suppliers'?'active':''} onClick={()=>setSection('suppliers')}><Building2/>Поставщики</button>
-    <div className="rail-divider"><span>Правила и система</span></div>
-    <button className={section==='formulas'?'active':''} onClick={()=>setSection('formulas')}><Calculator/>Конструктор формул</button>
+    <div className="rail-divider"><span>Правила и данные</span></div>
+    <button className={section==='formulas'?'active':''} onClick={()=>setSection('formulas')}><Calculator/>Формулы</button>
     <button className={section==='system'?'active':''} onClick={()=>setSection('system')}><Settings/>Система</button>
    </>:<>
     <button className={section==='manager'?'active':''} onClick={()=>setSection('manager')}><Table2/>Рабочий стол</button>
@@ -27,9 +27,9 @@ export function WorkRail({works,activeId,onSelect,onNew,query,setQuery,section,s
     <button className={section==='suppliers'?'active':''} onClick={()=>setSection('suppliers')}><Building2/>Поставщики</button>
    </>}
   </div>
-  {section==='works'&&<>{!isDirector&&<button className="primary full" onClick={onNew}><Plus size={16}/> Новая сделка</button>}<label className="search"><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder={isDirector?'Поиск всех сделок':'Поиск моих сделок'}/></label><div className="work-list">{works.map(work=><button key={work.id} className={`work-card ${activeId===work.id?'active':''}`} onClick={()=>onSelect(work.id)}><div className="work-top"><span>{work.code}</span><em>{deadlineLabel(work.deadline)}</em></div><strong>{work.customer}</strong><small>{work.title}</small><div className="progress"><i style={{width:`${work.progress}%`}}/></div><div className="work-meta"><span>{work.positions.length} поз.</span><span>{work.progress}%</span></div><p><Zap size={13}/>{work.nextAction}</p></button>)}</div></>}
-  {section==='manager'&&!isDirector&&<div className="rail-section-note"><Table2/><b>Рабочий стол менеджера</b><span>Мои сделки, сроки, действия и оплаты.</span></div>}
-  {section==='director'&&isDirector&&<div className="rail-section-note"><TrendingUp/><b>Панель директора</b><span>Компания, деньги, эффективность и риски.</span></div>}
+  {section==='works'&&<>{!isDirector&&<button className="primary full" onClick={onNew}><Plus size={16}/> Новая сделка</button>}<label className="search"><Search size={15}/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder={isDirector?'Поиск всех сделок':'Поиск моих сделок'}/></label><div className="work-list">{works.map(work=><button key={work.id} className={`work-card ${activeId===work.id?'active':''}`} onClick={()=>onSelect(work.id)}><div className="work-top"><span>{work.code}</span><em>{deadlineLabel(work.deadline)}</em></div><strong>{work.customer}</strong><small>{work.title}</small><div className="progress"><i style={{width:`${work.progress}%`}}/></div><div className="work-meta"><span>{work.positions.length} поз.</span><span>{work.progress}%</span></div><p><Zap size={13}/>{work.nextAction}</p></button>)}{!works.length&&<div className="rail-empty">Сделок пока нет</div>}</div></>}
+  {section==='manager'&&!isDirector&&<div className="rail-section-note"><Table2/><b>Рабочий стол менеджера</b><span>Сделки, сроки, действия и оплаты.</span></div>}
+  {section==='director'&&isDirector&&<div className="rail-section-note"><TrendingUp/><b>Сводка компании</b><span>Деньги, эффективность и риски.</span></div>}
   {section==='finance'&&isDirector&&<div className="rail-section-note"><Landmark/><b>Финансовая модель</b><span>Нормативы, премии, налоги, банки и дивиденды.</span></div>}
   {section==='works'&&isDirector&&<div className="rail-section-note"><ShieldCheck/><b>Режим контроля</b><span>Просмотр всех сделок без операционного ввода.</span></div>}
   <div className="rail-user"><div className="rail-user-avatar">{String(currentUser?.name||'П').slice(0,1).toUpperCase()}</div><div><b>{currentUser?.name||'Пользователь'}</b><span>{roleLabel}</span></div></div>
