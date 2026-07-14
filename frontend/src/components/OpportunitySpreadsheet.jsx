@@ -24,7 +24,7 @@ export function OpportunitySpreadsheet({data,setData,currentUser,selectedId,setS
   {readOnly&&<div className="readonly-note">Режим директора: таблица доступна для просмотра и фильтрации. Изменения вносит менеджер.</div>}
   <div className="opp-sheet-toolbar">
    <label className="opp-sheet-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Поиск по заказчику, закупке, номеру или площадке"/></label>
-   <select value={completeness} onChange={event=>setCompleteness(event.target.value)}><option>Все карточки</option><option value="Нужно дополнить">Нужно дополнить ({incompleteCount})</option><option>Готово к оценке</option></select>
+   <select value={completeness} onChange={event=>setCompleteness(event.target.value)}><option value="Все">Все карточки</option><option value="Нужно дополнить">Нужно дополнить ({incompleteCount})</option><option>Готово к оценке</option></select>
    <select value={status} onChange={event=>setStatus(event.target.value)}><option value="Все">Все статусы</option>{OPPORTUNITY_STATUSES.map(item=><option key={item}>{item}</option>)}</select>
    <select value={platform} onChange={event=>setPlatform(event.target.value)}><option value="Все">Все площадки</option>{(data.platforms||[]).map(item=><option value={item.id} key={item.id}>{item.name}</option>)}</select>
    <select value={owner} onChange={event=>setOwner(event.target.value)}><option value="Все">Все менеджеры</option>{owners.map(item=><option key={item}>{item}</option>)}</select>
