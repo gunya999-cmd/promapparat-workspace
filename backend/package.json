@@ -11,6 +11,7 @@
     "start": "node src/server.js",
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js",
+    "purge:files": "node scripts/purgeFiles.js",
     "test": "node --test"
   },
   "dependencies": {
