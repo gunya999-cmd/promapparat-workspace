@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState}from'react';
-import{Clipboard,ExternalLink,Link2,Paperclip,Plus,UploadCloud,X}from'lucide-react';
+import{Clipboard,Download,ExternalLink,Link2,Paperclip,Plus,UploadCloud,X}from'lucide-react';
 import{createOpportunity}from'../domain/opportunities.js';
 import{analyzeTenderPaste,buildManualTenderDraft}from'../domain/manualTenderCapture.js';
 import{persistAttachmentEntries}from'../domain/attachmentStore.js';
@@ -19,7 +19,7 @@ export function QuickTenderCapture({data,setData,currentUser,onClose,onSaved,ini
  return <div className={`capture-backdrop ${dragging?'is-dragging':''}`} onDragEnter={event=>{event.preventDefault();setDragging(true)}} onDragOver={event=>event.preventDefault()} onDragLeave={event=>{if(event.target===event.currentTarget)setDragging(false)}} onDrop={event=>{event.preventDefault();addFiles(event.dataTransfer.files)}} onMouseDown={event=>event.target===event.currentTarget&&onClose?.()}>
   <section className="tender-capture" role="dialog" aria-modal="true" aria-labelledby="capture-title">
    {dragging&&<div className="capture-drop-overlay"><UploadCloud/><b>Отпустите файлы</b><span>PDF, Excel, Word, архивы и изображения</span></div>}
-   <header className="capture-head"><div><span>Windows · быстрый ввод</span><h2 id="capture-title">Добавить тендер</h2><p>Ctrl+V — вставить, Ctrl+Enter — сохранить, Esc — закрыть.</p></div><button aria-label="Закрыть" onClick={onClose}><X/></button></header>
+   <header className="capture-head"><div><span>Windows · быстрый ввод</span><h2 id="capture-title">Добавить тендер</h2><p>Ctrl+V — вставить, Ctrl+Enter — сохранить, Esc — закрыть.</p></div><div className="capture-head-actions"><a href="/install-promapparat-extension.ps1" download><Download/>Расширение Edge</a><button aria-label="Закрыть" onClick={onClose}><X/></button></div></header>
    <div className="capture-paste">
     <div className="capture-paste-title"><Link2/><div><b>Вставьте ссылку или скопированный текст</b><span>Можно вставить несколько строк из браузера, письма или карточки площадки.</span></div></div>
     <textarea autoFocus value={form.pastedText} onChange={event=>applyPaste(event.target.value)} placeholder={'Ctrl+V\nПоставка шаровых кранов DN300\nhttps://zakupki.gov.ru/...'} />
@@ -27,7 +27,7 @@ export function QuickTenderCapture({data,setData,currentUser,onClose,onSaved,ini
    </div>
    {error&&<div className="capture-error">{error}</div>}
    <div className="capture-grid">
-    <label className="wide"><span>Предмет закупки</span><input value={form.title} onChange={event=>setForm({...form,title:event.target.value})} placeholder="Можно заполнить позже"/></label>
+    <label className="wide"><span>Предмет закупки</span><input value={form.title} onChange={event=>setForm({...form,title:event.value})} placeholder="Можно заполнить позже"/></label>
     <label><span>Заказчик</span><input value={form.customer} onChange={event=>setForm({...form,customer:event.target.value})} placeholder="Необязательно на первом шаге"/></label>
     <label><span>Площадка</span><select value={form.platformId} onChange={event=>setForm({...form,platformId:event.target.value})}><option value="">Другая / не определена</option>{platforms.map(item=><option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
     <label><span>Номер процедуры</span><input value={form.externalId} onChange={event=>setForm({...form,externalId:event.target.value})} placeholder="Определяется из ссылки"/></label>
