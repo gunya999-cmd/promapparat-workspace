@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState}from'react';
-import{Clipboard,ExternalLink,FilePlus2,Link2,Paperclip,Plus,UploadCloud,X}from'lucide-react';
+import{Clipboard,ExternalLink,Link2,Paperclip,Plus,UploadCloud,X}from'lucide-react';
 import{createOpportunity}from'../domain/opportunities.js';
 import{analyzeTenderPaste,buildManualTenderDraft}from'../domain/manualTenderCapture.js';
 
@@ -32,7 +32,7 @@ export function QuickTenderCapture({data,setData,currentUser,onClose,onSaved}){
     <label><span>Ориентировочная сумма</span><input type="number" min="0" value={form.estimatedAmount} onChange={event=>setForm({...form,estimatedAmount:event.target.value})} placeholder="Необязательно"/></label>
    </div>
    <section className="capture-files"><div><Paperclip/><div><b>Документы и скриншоты</b><span>Пока сохраняются названия файлов; после создания сделки их можно импортировать в спецификацию.</span></div></div><input ref={fileRef} hidden type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar,.png,.jpg,.jpeg" onChange={event=>addFiles(event.target.files)}/><button onClick={()=>fileRef.current?.click()}><UploadCloud/>Добавить файлы</button></section>
-   {form.attachments.length>0&&<div className="capture-file-list">{form.attachments.map((file,index)=><div key={`${file.name}-${index}`}><FilePlus2/><span>{file.name}</span><button aria-label={`Удалить ${file.name}`} onClick={()=>removeFile(index)}><X/></button></div>)}</div>}
+   {form.attachments.length>0&&<div className="capture-file-list">{form.attachments.map((file,index)=><div key={`${file.name}-${index}`}><Paperclip/><span>{file.name}</span><button aria-label={`Удалить ${file.name}`} onClick={()=>removeFile(index)}><X/></button></div>)}</div>}
    <details className="capture-more"><summary>Комментарий и дополнительные сведения</summary><textarea value={form.notes} onChange={event=>setForm({...form,notes:event.target.value})} placeholder="Что важно проверить, контакт, условия, примечание…"/></details>
    <footer className="capture-footer"><div><b>После сохранения</b><span>Тендер появится в очереди «Новые» у текущего менеджера.</span></div><button onClick={onClose}>Отмена</button><button className="primary" disabled={busy} onClick={save}><Plus/>{busy?'Сохранение…':'Сохранить тендер'}</button></footer>
   </section>
