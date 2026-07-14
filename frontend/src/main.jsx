@@ -15,5 +15,6 @@ import'./director-finance.css';
 import'./r4-manager.css';
 import'./r4-manager-focus.css';
 import'./r4-role-fixes.css';
+import'./r4-copy-fixes.css';
 
 createRoot(document.getElementById('root')).render(<App/>);
