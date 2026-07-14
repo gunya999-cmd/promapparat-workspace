@@ -26,6 +26,7 @@ router.patch('/:id',async(req,res,next)=>{try{
  if('active'in req.body){const active=Boolean(req.body.active);if(id===req.user.id&&!active)return res.status(400).json({error:'SELF_DISABLE',message:'Нельзя отключить собственный аккаунт'});add('active',active);changes.active=active}
  if('password'in req.body){const password=String(req.body.password||'');if(password.length<10)return res.status(400).json({error:'WEAK_PASSWORD',message:'Пароль должен содержать не менее 10 символов'});add('password_hash',await hashPassword(password));changes.passwordChanged=true}
  if(!sets.length)return res.json({user:safe(current)});values.push(id,req.user.organizationId);const result=await query(`UPDATE users SET ${sets.join(',')},updated_at=now() WHERE id=$${values.length-1} AND organization_id=$${values.length} RETURNING id,email,name,role,active,created_at,updated_at`,values);
+ if(changes.passwordChanged||changes.active===false||changes.role)await query('UPDATE refresh_tokens SET revoked_at=now() WHERE user_id=$1 AND revoked_at IS NULL',[id]);
  await query('INSERT INTO audit_log(organization_id,user_id,action,entity_type,entity_id,metadata) VALUES($1,$2,$3,$4,$5,$6::jsonb)',[req.user.organizationId,req.user.id,'user.update','user',id,JSON.stringify(changes)]);res.json({user:safe(result.rows[0])});
  }catch(error){next(error)}});
 
