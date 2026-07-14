@@ -49,7 +49,7 @@ export function analyzeTenderPaste(text,platforms=[]){
 }
 
 export function buildManualTenderDraft(input,platforms=[],actor={}){
- const parsed=analyzeTenderPaste(input.pastedText||input.sourceUrl||'',platforms),customer=trim(input.customer||parsed.customer),title=trim(input.title||parsed.title),deadline=trim(input.deadline||parsed.deadline),sourceUrl=normalizeTenderUrl(input.sourceUrl||parsed.sourceUrl),attachments=(input.attachments||[]).map(file=>({name:trim(file.name),size:Number(file.size||0),type:trim(file.type),addedAt:new Date().toISOString()}));
+ const parsed=analyzeTenderPaste(input.pastedText||input.sourceUrl||'',platforms),customer=trim(input.customer||parsed.customer),title=trim(input.title||parsed.title),deadline=trim(input.deadline||parsed.deadline),sourceUrl=normalizeTenderUrl(input.sourceUrl||parsed.sourceUrl),attachments=(input.attachments||[]).map(file=>({storageKey:trim(file.storageKey),name:trim(file.name),size:Number(file.size||0),type:trim(file.type),addedAt:file.addedAt||new Date().toISOString(),storedLocally:file.storedLocally!==false,storageError:trim(file.storageError)}));
  return{
   platformId:input.platformId||parsed.platformId||'',
   externalId:trim(input.externalId||parsed.externalId),
