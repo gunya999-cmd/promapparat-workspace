@@ -5,6 +5,7 @@ import {config} from './config.js';
 import authRoutes from './routes/auth.js';
 import workspaceRoutes from './routes/workspace.js';
 import fileRoutes from './routes/files.js';
+import userRoutes from './routes/users.js';
 
 export const app=express();
 app.disable('x-powered-by');
@@ -16,6 +17,7 @@ app.get('/health',(req,res)=>res.json({ok:true,service:'promapparat-api',time:ne
 app.use('/api/auth',authRoutes);
 app.use('/api/workspace',workspaceRoutes);
 app.use('/api/files',fileRoutes);
+app.use('/api/users',userRoutes);
 
 app.use((req,res)=>res.status(404).json({error:'NOT_FOUND',message:'Маршрут не найден'}));
 app.use((error,req,res,next)=>{console.error(error);if(error?.code==='LIMIT_FILE_SIZE')return res.status(413).json({error:'FILE_TOO_LARGE',message:'Файл превышает допустимый размер'});if(String(error?.message||'').includes('CORS'))return res.status(403).json({error:'CORS_DENIED',message:'Источник запроса не разрешён'});res.status(500).json({error:'INTERNAL_ERROR',message:config.nodeEnv==='production'?'Внутренняя ошибка сервера':error?.message||'Внутренняя ошибка сервера'})});
