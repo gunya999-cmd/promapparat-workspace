@@ -1,5 +1,5 @@
 import React,{useMemo,useState}from'react';
-import{Check,ClipboardPlus,Clock3,ExternalLink,History,Play,Plus,Search,ShieldCheck,Target,TrendingUp}from'lucide-react';
+import{Check,Clipboard,Clock3,ExternalLink,History,Play,Plus,Search,ShieldCheck,Target,TrendingUp}from'lucide-react';
 import{beginPlatformCheck,completePlatformCheck,opportunityAnalytics,rejectOpportunity,acceptOpportunity,updateOpportunityQualification}from'../domain/opportunities.js';
 import{OpportunitySpreadsheet}from'./OpportunitySpreadsheet.jsx';
 import{OpportunityDecisionPanel}from'./OpportunityDecisionPanel.jsx';
@@ -19,7 +19,7 @@ export function OpportunityEngine({data,setData,currentUser,onOpenWork,onAddTend
  const reject=(reason,note)=>selected&&!readOnly&&run(current=>rejectOpportunity(current,selected.id,reason,note,currentUser));
  const recentChecks=(data.platformChecks||[]).slice(0,8);
  return <main className="opportunity-page">
-  <header className="opportunity-head"><div><span>{readOnly?'Контроль директора':'Рабочее место менеджера'} · тендеры</span><h1>{readOnly?'Тендеры и площадки':'Найденные тендеры'}</h1><p>{readOnly?'Просмотр найденных закупок и решений менеджеров.':'Добавьте тендер вручную, быстро дополните карточку и примите решение об участии.'}</p></div>{!readOnly&&<button className="primary" onClick={onAddTender}><ClipboardPlus/>Добавить тендер</button>}</header>
+  <header className="opportunity-head"><div><span>{readOnly?'Контроль директора':'Рабочее место менеджера'} · тендеры</span><h1>{readOnly?'Тендеры и площадки':'Найденные тендеры'}</h1><p>{readOnly?'Просмотр найденных закупок и решений менеджеров.':'Добавьте тендер вручную, быстро дополните карточку и примите решение об участии.'}</p></div>{!readOnly&&<button className="primary" onClick={onAddTender}><Clipboard/>Добавить тендер</button>}</header>
   {readOnly&&<div className="readonly-note"><ShieldCheck/> Директор видит результаты поиска и может открыть созданную сделку. Изменения вносит менеджер.</div>}
   {error&&<div className="inline-error">{error}</div>}
   <section className="opportunity-kpis"><article><Target/><div><span>Площадки сегодня</span><b>{analytics.checkedPlatforms}/{analytics.totalPlatforms}</b></div></article><article><Search/><div><span>Просмотрено закупок</span><b>{analytics.reviewedToday}</b></div></article><article><Plus/><div><span>Найдено сегодня</span><b>{analytics.foundToday}</b></div></article><article><Clock3/><div><span>На оценке</span><b>{analytics.active}</b></div></article><article><TrendingUp/><div><span>Конверсия</span><b>{analytics.conversion.toFixed(1)}%</b></div></article></section>
