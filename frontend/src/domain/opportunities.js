@@ -24,6 +24,7 @@ const now=()=>new Date().toISOString();
 const event=(type,title,detail,actor,extra={})=>({id:uid(),type,title,detail,author:actorName(actor),actorId:actor?.id||null,entityType:'opportunity',source:'ui',createdAt:now(),...extra});
 const today=value=>String(value||'').slice(0,10)===new Date().toISOString().slice(0,10);
 const normalizedUrl=value=>String(value||'').trim().replace(/#.*$/,'').replace(/\/$/,'');
+const sourceDocumentType=name=>{const ext=String(name||'').split('.').pop().toLowerCase();if(['xlsx','xls','csv'].includes(ext))return'Спецификация';if(['pdf','doc','docx'].includes(ext))return'ТЗ';return'Прочее'};
 
 export function beginPlatformCheck(state,platformId,actor){
  const platform=(state.platforms||[]).find(item=>item.id===platformId);if(!platform)throw new Error('Площадка не найдена');
@@ -77,9 +78,9 @@ export function rejectOpportunity(state,id,reason,note,actor){
 
 export function acceptOpportunity(state,id,actor){
  const current=(state.opportunities||[]).find(item=>item.id===id);if(!current)throw new Error('Возможность не найдена');if(current.status==='Взята в работу')throw new Error('Возможность уже взята в работу');
- const created=createWorkCommand(state,{customer:current.customer,title:current.title,objectName:current.title,source:'Тендер',deadline:current.deadline,manager:current.owner||actorName(actor)},actor),work={...created.work,opportunityId:id,sourcePlatformId:current.platformId,externalTenderId:current.externalId,sourceUrl:current.sourceUrl||'',tenderAttachments:current.attachments||[]};
- const works=created.state.works.map(item=>item.id===work.id?work:item),next={...current,status:'Взята в работу',workId:work.id,decidedAt:now(),decidedBy:actor?.id||null};
- return{state:{...created.state,works,opportunities:(created.state.opportunities||state.opportunities||[]).map(item=>item.id===id?next:item),events:[event('conversion','Возможность взята в работу',`${next.customer} → ${work.code}`,actor,{entityId:id,workId:work.id,newValue:{workId:work.id}}),...(created.state.events||[])]},work,opportunity:next};
+ const created=createWorkCommand(state,{customer:current.customer,title:current.title,objectName:current.title,source:'Тендер',deadline:current.deadline,manager:current.owner||actorName(actor)},actor),attachments=current.attachments||[],work={...created.work,opportunityId:id,sourcePlatformId:current.platformId,externalTenderId:current.externalId,sourceUrl:current.sourceUrl||'',tenderAttachments:attachments};
+ const works=created.state.works.map(item=>item.id===work.id?work:item),sourceDocuments=attachments.map(attachment=>({id:uid(),workId:work.id,positionId:null,type:sourceDocumentType(attachment.name),name:attachment.name,size:Number(attachment.size||0),mime:attachment.type||'',uploadedAt:attachment.addedAt||now(),required:['ТЗ','Спецификация'].includes(sourceDocumentType(attachment.name)),source:'tender-capture',storageKey:attachment.storageKey||'',storedLocally:attachment.storedLocally!==false})),next={...current,status:'Взята в работу',workId:work.id,decidedAt:now(),decidedBy:actor?.id||null};
+ return{state:{...created.state,works,documents:[...sourceDocuments,...(created.state.documents||[])],opportunities:(created.state.opportunities||state.opportunities||[]).map(item=>item.id===id?next:item),events:[event('conversion','Возможность взята в работу',`${next.customer} → ${work.code}`,actor,{entityId:id,workId:work.id,newValue:{workId:work.id,documents:sourceDocuments.length}}),...(created.state.events||[])]},work,opportunity:next};
 }
 
 export function opportunityAnalytics(state){
