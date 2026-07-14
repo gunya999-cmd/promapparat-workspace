@@ -5,6 +5,7 @@ import{OpportunitySpreadsheet}from'./OpportunitySpreadsheet.jsx';
 import{OpportunityDecisionPanel}from'./OpportunityDecisionPanel.jsx';
 
 const dateText=value=>value?new Intl.DateTimeFormat('ru-RU',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).format(new Date(value)):'никогда';
+const hasExcelAttachment=opportunity=>(opportunity?.attachments||[]).some(item=>/\.(xlsx|xls)$/i.test(String(item.name||'')));
 
 export function OpportunityEngine({data,setData,currentUser,onOpenWork,onAddTender,focusOpportunityId=''}){
  const readOnly=currentUser?.role==='director',latest=data.opportunities?.[0];
@@ -16,7 +17,7 @@ export function OpportunityEngine({data,setData,currentUser,onOpenWork,onAddTend
  const startCheck=platform=>{if(readOnly)return;run(current=>beginPlatformCheck(current,platform.id,currentUser));setCheckingId(platform.id);setCheckDraft({reviewedCount:'',foundCount:'',notes:''})};
  const finishCheck=()=>{if(readOnly||!checkingId)return;run(current=>completePlatformCheck(current,checkingId,checkDraft,currentUser));setCheckingId(null);setCheckDraft({reviewedCount:'',foundCount:'',notes:''})};
  const qualify=(field,value)=>selected&&!readOnly&&run(current=>updateOpportunityQualification(current,selected.id,{[field]:value},currentUser));
- const accept=()=>{if(readOnly||!selected)return;try{let work;setData(current=>{const result=acceptOpportunity(current,selected.id,currentUser);work=result.work;return result.state});if(work)onOpenWork(work.id)}catch(exception){setError(exception?.message||'Не удалось взять тендер в работу')}};
+ const accept=()=>{if(readOnly||!selected)return;try{let work;setData(current=>{const result=acceptOpportunity(current,selected.id,currentUser);work=result.work;return result.state});if(work)onOpenWork(work.id,hasExcelAttachment(selected)?'import':'overview')}catch(exception){setError(exception?.message||'Не удалось взять тендер в работу')}};
  const reject=(reason,note)=>selected&&!readOnly&&run(current=>rejectOpportunity(current,selected.id,reason,note,currentUser));
  const recentChecks=(data.platformChecks||[]).slice(0,8);
  return <main className="opportunity-page">
