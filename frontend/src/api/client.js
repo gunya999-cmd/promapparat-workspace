@@ -30,6 +30,8 @@ export async function login(email,password){const session=await apiRequest('/api
 export async function logout(){const session=getSession();try{if(session?.refreshToken)await apiRequest('/api/auth/logout',{method:'POST',body:JSON.stringify({refreshToken:session.refreshToken})},false)}finally{saveSession(null)}}
 export const getWorkspace=()=>apiRequest('/api/workspace');
 export const saveWorkspace=(baseRevision,data)=>apiRequest('/api/workspace',{method:'PUT',body:JSON.stringify({baseRevision,data})});
+export const bootstrapWorkspace=data=>apiRequest('/api/workspace/bootstrap',{method:'POST',body:JSON.stringify({data})});
+export const getAuditLog=(limit=50)=>apiRequest(`/api/workspace/audit?limit=${encodeURIComponent(limit)}`);
 export const listUsers=()=>apiRequest('/api/users');
 export const createUser=data=>apiRequest('/api/users',{method:'POST',body:JSON.stringify(data)});
 export const updateUser=(id,data)=>apiRequest(`/api/users/${id}`,{method:'PATCH',body:JSON.stringify(data)});
