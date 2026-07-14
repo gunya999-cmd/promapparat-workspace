@@ -43,7 +43,7 @@ export default function App({serverSession=null}){
  const switchRole=role=>{if(workspace.serverManaged)return;const user=userForRole(data,role);if(!user)return;setData(current=>({...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}));setNotice(role==='manager'?`Открыт рабочий стол: ${user.name}`:'Открыта сводка компании')};
  const openTenderCapture=()=>{if(isDirector)return;setCaptureInput('');setShowTenderCapture(true)};
  const closeTenderCapture=()=>{setShowTenderCapture(false);setCaptureInput('')};
- const tenderSaved=opportunity=>{const failed=(opportunity?.attachments||[]).filter(item=>item.storedLocally===false).length;closeTenderCapture();setFocusOpportunityId(opportunity?.id||'');setSection('opportunities');setSelectedId(null);setNotice(failed?`Тендер сохранён, но ${failed} файл(а) не сохранились локально.`:opportunity?.captureIncomplete?'Тендер сохранён. Дополните карточку перед оценкой.':'Тендер и файлы добавлены в очередь «Новые»')};
+ const tenderSaved=opportunity=>{const failed=(opportunity?.attachments||[]).filter(item=>item.storedLocally===false&&!item.storedOnServer).length;closeTenderCapture();setFocusOpportunityId(opportunity?.id||'');setSection('opportunities');setSelectedId(null);setNotice(failed?`Тендер сохранён, но ${failed} файл(а) не сохранились.`:opportunity?.captureIncomplete?'Тендер сохранён. Дополните карточку перед оценкой.':'Тендер и файлы добавлены в очередь «Новые»')};
  const showContext=visibleSection==='works'&&active;
  if(workspace.loading)return <main className="server-loading"><div><i/><b>Загружаю рабочее пространство</b><span>Получаем актуальные данные компании…</span></div></main>;
  return <div className={`v2-shell ${showContext?'with-context':''}`}>
@@ -58,7 +58,7 @@ export default function App({serverSession=null}){
    {visibleSection==='works'&&active&&<WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser} initialTab={workInitialTab}/>} 
    {visibleSection==='suppliers'&&<SuppliersView data={data} setData={setData} currentUser={currentUser}/>} 
    {visibleSection==='formulas'&&isDirector&&<FormulaDashboard data={data} setData={setData} currentUser={currentUser}/>} 
-   {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} serverManaged={workspace.serverManaged} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
+   {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} serverManaged={workspace.serverManaged} onServerChanged={workspace.reloadFromServer} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
   </div>
   {showContext&&(selected&&!isDirector?<PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/>:<WorkContextPanel work={active} data={data} readOnly={isDirector} onSelectPosition={setSelectedId}/>)}
   {showNew&&!isDirector&&<NewWorkModal currentUser={currentUser} onClose={()=>setShowNew(false)} onSave={createWork}/>} 
