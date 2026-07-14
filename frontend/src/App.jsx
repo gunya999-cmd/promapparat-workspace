@@ -44,7 +44,7 @@ export default function App(){
   <CommandBar works={roleWorks} users={data.users||[]} currentUser={currentUser} onOpenWork={openWork} onAddTender={()=>!isDirector&&setShowTenderCapture(true)} onSwitchRole={switchRole} section={visibleSection}/>
   <div className="v2-content">
    {visibleSection==='manager'&&!isDirector&&<R4ManagerWorkspace data={data} setData={setData} works={roleWorks} currentUser={currentUser} onOpenWork={openWork} onOpenOpportunities={()=>navigate('opportunities')} onNew={()=>setShowNew(true)}/>} 
-   {visibleSection==='opportunities'&&<OpportunityEngine data={data} setData={setData} currentUser={currentUser} onOpenWork={openWork}/>} 
+   {visibleSection==='opportunities'&&<OpportunityEngine data={data} setData={setData} currentUser={currentUser} onOpenWork={openWork} onAddTender={()=>!isDirector&&setShowTenderCapture(true)}/>} 
    {visibleSection==='director'&&isDirector&&<DirectorView data={data} works={works} onOpenWork={openWork}/>} 
    {visibleSection==='finance'&&isDirector&&<DirectorFinanceCenter data={data} setData={setData} works={works} onOpenWork={openWork} currentUser={currentUser}/>} 
    {visibleSection==='dashboard'&&!isDirector&&<DashboardView works={roleWorks} data={data} currentUser={currentUser} settings={data.settings} onOpenWork={openWork}/>} 
