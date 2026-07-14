@@ -1,6 +1,7 @@
 import{useCallback,useEffect,useRef,useState}from'react';
 import{getWorkspace,saveWorkspace,serverMode}from'../api/client.js';
 import{workspaceRepository}from'../data/workspaceRepository.js';
+import{normalizeWorkspace}from'../domain/workspace.js';
 import{normalizeWorkspaceUsers}from'../domain/users.js';
 
 export function useWorkspace({serverSession=null}={}){
@@ -10,7 +11,8 @@ export function useWorkspace({serverSession=null}={}){
  const suppressSave=useRef(false),revisionRef=useRef(Number(data.meta?.revision||0)),remoteReady=useRef(false),pendingData=useRef(null),saving=useRef(false),timer=useRef(null),conflict=useRef(false),dataRef=useRef(data);
  useEffect(()=>{dataRef.current=data},[data]);
 
- const replaceData=useCallback(value=>{const normalized=normalizeWorkspaceUsers(value);suppressSave.current=true;dataRef.current=normalized;setData(normalized)},[]);
+ const normalize=useCallback(value=>remoteEnabled?normalizeWorkspace(value):normalizeWorkspaceUsers(value),[remoteEnabled]);
+ const replaceData=useCallback(value=>{const normalized=normalize(value);suppressSave.current=true;dataRef.current=normalized;setData(normalized)},[normalize]);
  const loadRemote=useCallback(async()=>{if(!remoteEnabled)return;setLoading(true);setSyncState('loading');conflict.current=false;try{const result=await getWorkspace();revisionRef.current=Number(result.revision||0);remoteReady.current=true;replaceData(result.data);setStorageError('');setSyncState('synced')}catch(error){setStorageError(error?.message||'Не удалось загрузить данные с сервера');setSyncState('error')}finally{setLoading(false)}},[remoteEnabled,serverSession?.user?.id,replaceData]);
 
  const flushRemote=useCallback(async()=>{if(!remoteEnabled||!remoteReady.current||saving.current||conflict.current||!pendingData.current)return;const snapshot=pendingData.current;pendingData.current=null;saving.current=true;setSyncState('saving');try{const result=await saveWorkspace(revisionRef.current,snapshot);revisionRef.current=Number(result.revision||revisionRef.current);setStorageError('');setSyncState('synced');if(!pendingData.current)replaceData(result.data)}catch(error){if(error?.status===409){pendingData.current=snapshot;conflict.current=true;setSyncState('conflict');setStorageError('Данные изменены другим пользователем. Обновите рабочее пространство перед продолжением.')}else{pendingData.current=snapshot;setSyncState('error');setStorageError(error?.message||'Не удалось сохранить данные на сервере')}}finally{saving.current=false;if(pendingData.current&&!conflict.current){clearTimeout(timer.current);timer.current=setTimeout(flushRemote,800)}}},[remoteEnabled,replaceData]);
