@@ -8,7 +8,7 @@ export const WORK_STATES=['Новая','Анализ','Решение участ
 export const POSITION_STATES=['Не начато','Нужен поставщик','Запрос отправлен','Ожидаем ТКП','ТКП получено','Цена рассчитана','В КП','Заказано','В производстве','Готово досрочно','Готово','Частично отгружено','Отгружено','Закрыто'];
 export const CLOSED_WORK_STATES=new Set(['Закрыто успешно','Закрыто проиграно','Архив']);
 export const CLOSED_POSITION_STATES=new Set(['Отгружено','Закрыто']);
-export const USER_ROLES={ADMIN:'admin',MANAGER:'manager',HEAD:'head'};
+export const USER_ROLES={DIRECTOR:'director',MANAGER:'manager',ADMIN:'director',HEAD:'director'};
 export const uid=()=>globalThis.crypto?.randomUUID?.()||String(Date.now()+Math.random());
 export const money=(value,currency='RUB')=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:currency||'RUB',maximumFractionDigits:0}).format(Number(value||0));
 export const pct=value=>value==null||Number.isNaN(Number(value))?'—':`${Number(value).toFixed(1)}%`;
@@ -19,10 +19,11 @@ export const deadlineBucket=value=>{const days=daysLeft(value);if(days<0)return'
 export const isWorkClosed=work=>CLOSED_WORK_STATES.has(work?.state);
 export const isPositionClosed=position=>CLOSED_POSITION_STATES.has(position?.status);
 const minutesAgo=value=>new Date(Date.now()-value*60000).toISOString();
+const normalizedRole=role=>['admin','head','director'].includes(String(role||'').toLowerCase())?'director':'manager';
 
 export const createDemoWorkspace=()=>({
- schemaVersion:CURRENT_SCHEMA_VERSION,currentUser:{id:'u-admin',name:'Администратор',role:USER_ROLES.ADMIN},
- users:[{id:'u-admin',name:'Администратор',role:USER_ROLES.ADMIN,active:true},{id:'u-manager-1',name:'Иванов',role:USER_ROLES.MANAGER,active:true},{id:'u-manager-2',name:'Петров',role:USER_ROLES.MANAGER,active:true}],
+ schemaVersion:CURRENT_SCHEMA_VERSION,currentUser:{id:'u-director',name:'Директор',role:USER_ROLES.DIRECTOR},
+ users:[{id:'u-director',name:'Директор',role:USER_ROLES.DIRECTOR,active:true},{id:'u-manager-1',name:'Иванов',role:USER_ROLES.MANAGER,active:true},{id:'u-manager-2',name:'Петров',role:USER_ROLES.MANAGER,active:true}],
  settings:{currency:'RUB',vatRate:20,targetMargin:15},counters:{workSequence:3},meta:{revision:0,updatedAt:new Date().toISOString()},
  works:[{id:'w1',code:'PA-2026-0001',title:'Клапаны 46 шт',source:'Тендер',customer:'НкНПЗ',objectName:'Клапаны и запорная арматура',manager:'Иванов',deadline:todayPlus(1),state:'Расчет'},{id:'w2',code:'PA-2026-0002',title:'Расходомеры и КИП',source:'Тендер',customer:'СИБУР',objectName:'Модернизация линии учета',manager:'Петров',deadline:todayPlus(3),state:'Ожидаем ТКП'},{id:'w3',code:'PA-2026-0003',title:'Регулирующая арматура',source:'Сайт',customer:'ООО СеверХим',objectName:'Производственный участок',manager:'Иванов',deadline:todayPlus(7),state:'Новая'}],
  suppliers:[{id:'s1',name:'ООО Арматура-Сервис',city:'Москва',contact:'Алексей',phone:'+7 900 111-22-33'},{id:'s2',name:'Завод ПромКлапан',city:'Санкт-Петербург',contact:'Ирина',phone:'+7 900 222-33-44'},{id:'s3',name:'ТД КИП Комплект',city:'Екатеринбург',contact:'Олег',phone:'+7 900 333-44-55'}],
@@ -34,7 +35,10 @@ export const createDemoWorkspace=()=>({
 });
 
 const collection=(data,key,fallback)=>Array.isArray(data?.[key])?data[key]:fallback;
-export function normalizeWorkspace(raw){const base=createDemoWorkspace(),data=migrateWorkspace(raw);return{...base,...data,schemaVersion:CURRENT_SCHEMA_VERSION,currentUser:data.currentUser||base.currentUser,users:collection(data,'users',base.users),works:collection(data,'works',base.works),suppliers:collection(data,'suppliers',base.suppliers),positions:collection(data,'positions',base.positions).map(position=>({...position,qty:Math.max(0,Number(position.qty||0)),vatRate:Number(position.vatRate??data.settings?.vatRate??20),logisticsCost:Math.max(0,Number(position.logisticsCost||0)),otherCosts:Math.max(0,Number(position.otherCosts||0)),offers:position.offers||[],batches:position.batches||[]})),platforms:collection(data,'platforms',base.platforms),opportunities:collection(data,'opportunities',base.opportunities),documents:collection(data,'documents',[]),tasks:collection(data,'tasks',[]),customers:collection(data,'customers',[]),events:collection(data,'events',base.events),formulas:collection(data,'formulas',[]),formulaImports:collection(data,'formulaImports',[]),specificationImports:collection(data,'specificationImports',[]),supplierRequests:collection(data,'supplierRequests',[]),quotes:collection(data,'quotes',[]),shipments:collection(data,'shipments',[]),invoices:collection(data,'invoices',[]),settings:{...base.settings,...data.settings},counters:{...base.counters,...data.counters},meta:{...base.meta,...data.meta}}}
+export function normalizeWorkspace(raw){
+ const base=createDemoWorkspace(),data=migrateWorkspace(raw),users=collection(data,'users',base.users).map(user=>({...user,role:normalizedRole(user.role)})),currentCandidate={...(data.currentUser||base.currentUser),role:normalizedRole((data.currentUser||base.currentUser).role)},currentUser=users.find(user=>user.id===currentCandidate.id)||users.find(user=>user.role===currentCandidate.role)||users[0]||base.currentUser;
+ return{...base,...data,schemaVersion:CURRENT_SCHEMA_VERSION,currentUser,users,works:collection(data,'works',base.works),suppliers:collection(data,'suppliers',base.suppliers),positions:collection(data,'positions',base.positions).map(position=>({...position,qty:Math.max(0,Number(position.qty||0)),vatRate:Number(position.vatRate??data.settings?.vatRate??20),logisticsCost:Math.max(0,Number(position.logisticsCost||0)),otherCosts:Math.max(0,Number(position.otherCosts||0)),offers:position.offers||[],batches:position.batches||[]})),platforms:collection(data,'platforms',base.platforms),opportunities:collection(data,'opportunities',base.opportunities),documents:collection(data,'documents',[]),tasks:collection(data,'tasks',[]),customers:collection(data,'customers',[]),events:collection(data,'events',base.events),formulas:collection(data,'formulas',[]),formulaImports:collection(data,'formulaImports',[]),specificationImports:collection(data,'specificationImports',[]),supplierRequests:collection(data,'supplierRequests',[]),quotes:collection(data,'quotes',[]),shipments:collection(data,'shipments',[]),invoices:collection(data,'invoices',[]),settings:{...base.settings,...data.settings},counters:{...base.counters,...data.counters},meta:{...base.meta,...data.meta}}
+}
 
 export function calculatePosition(position,suppliers,settings={},formulas=[],work=null){
  const offers=(position.offers||[]).map(offer=>({...offer,supplier:suppliers.find(supplier=>supplier.id===offer.supplierId)||null})),selected=offers.find(offer=>offer.selected===true)||null;
