@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ru">
+<head>
+ <meta charset="utf-8"/>
+ <meta name="viewport" content="width=device-width,initial-scale=1"/>
+ <title>PromApparat — настройки расширения</title>
+ <link rel="stylesheet" href="options.css"/>
+</head>
+<body>
+ <main>
+  <div class="logo">PA</div>
+  <div>
+   <span>PromApparat Workspace</span>
+   <h1>Настройки расширения</h1>
+   <p>Укажите адрес рабочей версии PromApparat. Обычно менять его не требуется.</p>
+  </div>
+  <label>Адрес приложения
+   <input id="app-url" type="url" placeholder="https://promapparat-workspace.pages.dev/"/>
+  </label>
+  <div class="actions"><button id="reset">По умолчанию</button><button id="save" class="primary">Сохранить</button></div>
+  <div id="status" role="status"></div>
+  <section>
+   <b>Быстрый захват тендера</b>
+   <p>Откройте закупку и нажмите значок расширения, пункт правой кнопки мыши или Ctrl+Shift+Y.</p>
+  </section>
+ </main>
+ <script src="options.js"></script>
+</body>
+</html>
