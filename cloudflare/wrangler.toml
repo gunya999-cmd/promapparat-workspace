@@ -1,0 +1,14 @@
+name = "promapparat-api"
+main = "src/index.js"
+compatibility_date = "2026-07-15"
+workers_dev = true
+
+[vars]
+CORS_ORIGINS = "https://promapparat-workspace.pages.dev,http://localhost:5173"
+MAX_FILE_SIZE_MB = "20"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "promapparat-workspace"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "migrations"
