@@ -1,62 +1,75 @@
 import React,{useMemo,useState}from'react';
-import{AlertTriangle,ArrowRight,BriefcaseBusiness,CalendarClock,CheckCircle2,Clock3,Compass,Filter,Plus,Search,WalletCards,X}from'lucide-react';
-import{WORK_STATES,daysLeft,money,uid}from'../domain/workspace.js';
+import{AlertTriangle,ArrowRight,CheckCircle2,Clock3,Compass,ExternalLink,FilePlus2,Flame,Search,Target,WalletCards}from'lucide-react';
+import{daysLeft,money}from'../domain/workspace.js';
 
-const stageForWork=state=>{if(['Новая','Анализ','Решение участвовать'].includes(state))return'Анализ';if(['Расчет','Ожидаем ТКП'].includes(state))return'Закупка и ТКП';if(['КП готовится','КП отправлено'].includes(state))return'Коммерческое предложение';if(state==='Переговоры')return'Переговоры';if(state==='Договор')return'Контракт';if(state==='Производство')return'Производство';if(state==='Отгрузка')return'Поставка и оплата';if(['Закрыто успешно','Закрыто проиграно','Архив'].includes(state))return'Завершено';return state||'Без стадии'};
-const stageClass=stage=>({Поиск:'search',Квалификация:'qualify',Анализ:'analysis','Закупка и ТКП':'supply','Коммерческое предложение':'quote',Переговоры:'negotiation',Контракт:'contract',Производство:'production','Поставка и оплата':'delivery',Завершено:'done'}[stage]||'analysis');
-const deadlineText=value=>{const days=daysLeft(value);if(days===999)return'Без срока';if(days<0)return`Просрочено ${Math.abs(days)} дн.`;if(days===0)return'Сегодня';if(days===1)return'Завтра';return`${days} дн.`};
-const compact=value=>new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1}).format(Number(value||0));
-const paymentOptions=['Не выставлен','Счет выставлен','Частичная оплата','Оплачено','Просрочено'];
-const focusOptions=[['today','Сегодня'],['attention','Требуют внимания'],['payments','Оплаты'],['all','Все сделки']];
-const routeLabels={overview:'Обзор',positions:'Позиции',suppliers:'Запросы ТКП',quote:'КП',production:'Производство',logistics:'Логистика',payments:'Оплата'};
+const stageForWork=state=>{if(['Новая','Анализ','Решение участвовать'].includes(state))return'Анализ';if(['Расчет','Ожидаем ТКП'].includes(state))return'ТКП';if(['КП готовится','КП отправлено','Переговоры','Договор'].includes(state))return'КП и договор';if(state==='Производство')return'Производство';if(state==='Отгрузка')return'Поставка и оплата';if(['Закрыто успешно','Закрыто проиграно','Архив'].includes(state))return'Завершено';return state||'Без стадии'};
+const deadlineLabel=value=>{const days=daysLeft(value);if(days===999)return'Без срока';if(days<0)return`Просрочено ${Math.abs(days)} дн.`;if(days===0)return'Сегодня';if(days===1)return'Завтра';return`${days} дн.`};
+const workflowTab=(work,data)=>{const action=String(work.nextAction||'').toLowerCase();if(action.includes('ткп')||action.includes('поставщик'))return'suppliers';if(action.includes('кп')||action.includes('цен'))return'quote';if(action.includes('производ')||action.includes('парт'))return'production';if(action.includes('достав')||action.includes('отгруз'))return'logistics';if(action.includes('оплат')||action.includes('счёт')||action.includes('счет'))return'payments';if(['Новая','Анализ','Решение участвовать'].includes(work.state))return(data.positions||[]).some(position=>position.workId===work.id)?'overview':'import';if(work.state==='Ожидаем ТКП')return'suppliers';if(['Расчет','КП готовится','КП отправлено','Переговоры','Договор'].includes(work.state))return'quote';if(work.state==='Производство')return'production';if(work.state==='Отгрузка')return'logistics';return'overview'};
+const priorityScore=item=>{const days=daysLeft(item.actionDate);return(days<0?1000+Math.abs(days)*20:days===0?800:days===1?500:Math.max(0,200-days*10))+(item.blockers||0)*80+(item.paymentStatus==='Просрочено'?500:0)+(item.type==='opportunity'?30:0)};
 
-const workflowTab=(work,data)=>{
- const action=String(work.nextAction||'').toLowerCase();
- if(action.includes('ткп')||action.includes('поставщик'))return'suppliers';
- if(action.includes('кп')||action.includes('цен'))return'quote';
- if(action.includes('производ')||action.includes('парт'))return'production';
- if(action.includes('достав')||action.includes('отгруз'))return'logistics';
- if(action.includes('оплат')||action.includes('счёт')||action.includes('счет'))return'payments';
- if(['Новая','Анализ','Решение участвовать'].includes(work.state))return(data.positions||[]).some(position=>position.workId===work.id)?'overview':'import';
- if(work.state==='Ожидаем ТКП')return'suppliers';
- if(['Расчет','КП готовится','КП отправлено','Переговоры','Договор'].includes(work.state))return'quote';
- if(work.state==='Производство')return'production';
- if(work.state==='Отгрузка')return((data.invoices||[]).some(invoice=>invoice.workId===work.id)||work.deliveryComplete||work.paymentStatus&&work.paymentStatus!=='Не выставлен')?'payments':'logistics';
- return'overview';
-};
-
-export function R4ManagerWorkspace({data,setData,works,currentUser,onOpenWork,onOpenOpportunities,onNew}){
+export function R4ManagerWorkspace({data,works,currentUser,onOpenWork,onOpenOpportunities,onNew}){
+ const[query,setQuery]=useState('');
  const isManager=currentUser?.role==='manager';
- const[query,setQuery]=useState(''),[stage,setStage]=useState('Все стадии'),[focus,setFocus]=useState('today'),[selectedKey,setSelectedKey]=useState('');
- const rows=useMemo(()=>{
+ const items=useMemo(()=>{
   const ownWorks=isManager?works.filter(work=>work.manager===currentUser?.name):works;
   const ownOpps=(data.opportunities||[]).filter(item=>!item.workId&&(!isManager||item.owner===currentUser?.name));
   return[
-   ...ownOpps.map(item=>({key:`opp:${item.id}`,type:'opportunity',id:item.id,code:item.externalId||'Новая',customer:item.customer,title:item.title,stage:item.status==='На оценке'?'Квалификация':'Поиск',deadline:item.deadline,nextAction:item.captureIncomplete?'Дополнить карточку тендера':item.status==='На оценке'?'Принять решение об участии':'Провести экспресс-анализ',nextActionDate:item.deadline,progress:item.status==='На оценке'?20:8,revenue:Number(item.estimatedAmount||0),grossProfit:0,netProfit:0,margin:null,manager:item.owner||'—',blockers:item.captureIncomplete?1:item.status==='На оценке'?0:1,paymentStatus:'—',expectedPaymentDate:'',status:item.status,raw:item,route:'opportunities'})),
-   ...ownWorks.map(work=>({key:`work:${work.id}`,type:'work',id:work.id,code:work.code,customer:work.customer,title:work.title,stage:stageForWork(work.state),deadline:work.deadline,nextAction:work.nextAction||'Уточнить следующее действие',nextActionDate:work.nextActionDate||work.deadline,progress:work.progress,revenue:Number(work.totals?.saleTotal||0),grossProfit:Number(work.totals?.grossProfit||0),netProfit:Number(work.totals?.netProfit||0),margin:work.totals?.saleTotal?Number(work.totals.grossProfit||0)/Number(work.totals.saleTotal)*100:null,manager:work.manager||'—',blockers:Number(work.blockers||0),paymentStatus:work.paymentStatus||(['Закрыто успешно'].includes(work.state)?'Оплачено':'Не выставлен'),expectedPaymentDate:work.expectedPaymentDate||'',status:work.state,raw:work,route:workflowTab(work,data)}))
-  ].sort((a,b)=>daysLeft(a.nextActionDate)-daysLeft(b.nextActionDate)||b.blockers-a.blockers);
+   ...ownOpps.map(item=>({id:item.id,type:'opportunity',customer:item.customer||'Заказчик не указан',title:item.title||'Новый тендер',code:item.externalId||'Новая находка',stage:item.captureIncomplete?'Нужно дополнить':item.status||'На оценке',action:item.captureIncomplete?'Дополнить карточку тендера':'Принять решение об участии',actionDate:item.deadline,blockers:item.captureIncomplete?1:0,value:Number(item.estimatedAmount||0),paymentStatus:'',route:'opportunities'})),
+   ...ownWorks.map(work=>({id:work.id,type:'work',customer:work.customer||'Заказчик не указан',title:work.title||'Без названия',code:work.code||'Сделка',stage:stageForWork(work.state),action:work.nextAction||'Уточнить следующее действие',actionDate:work.nextActionDate||work.deadline,blockers:Number(work.blockers||0),value:Number(work.totals?.saleTotal||0),paymentStatus:work.paymentStatus||'',route:workflowTab(work,data)}))
+  ].filter(item=>item.stage!=='Завершено').sort((a,b)=>priorityScore(b)-priorityScore(a));
  },[data,works,currentUser?.name,isManager]);
- const stages=['Все стадии',...new Set(rows.map(item=>item.stage))];
- const needsAttention=item=>item.blockers>0||daysLeft(item.nextActionDate)<=1||item.paymentStatus==='Просрочено';
- const filtered=rows.filter(item=>{const text=`${item.code} ${item.customer} ${item.title} ${item.manager} ${item.stage} ${item.nextAction}`.toLowerCase();const focusMatch=focus==='all'||focus==='attention'&&needsAttention(item)||focus==='payments'&&['Счет выставлен','Частичная оплата','Просрочено'].includes(item.paymentStatus)||focus==='today'&&daysLeft(item.nextActionDate)<=0;return(!query||text.includes(query.toLowerCase()))&&(stage==='Все стадии'||item.stage===stage)&&focusMatch});
- const selected=rows.find(item=>item.key===selectedKey)||filtered[0]||null;
- const today=new Date().toISOString().slice(0,10),foundToday=(data.opportunities||[]).filter(item=>String(item.createdAt||'').slice(0,10)===today&&(!isManager||item.owner===currentUser?.name)).length;
- const activeCount=rows.filter(item=>item.stage!=='Завершено').length,attentionCount=rows.filter(needsAttention).length,quoteCount=rows.filter(item=>item.stage==='Коммерческое предложение').length,paymentCount=rows.filter(item=>['Счет выставлен','Частичная оплата','Просрочено'].includes(item.paymentStatus)).length,overdue=rows.filter(item=>daysLeft(item.nextActionDate)<0&&item.stage!=='Завершено').length;
- const updateWork=(id,patch,label)=>{if(!isManager)return;setData(current=>{const work=current.works.find(item=>item.id===id);if(!work)return current;const next={...work,...patch,updatedAt:new Date().toISOString()};return{...current,works:current.works.map(item=>item.id===id?next:item),events:[{id:uid(),workId:id,entityType:'work',entityId:id,type:'manager-workspace',title:label,detail:Object.entries(patch).map(([key,value])=>`${key}: ${value}`).join(' · '),author:currentUser?.name||'Менеджер',actorId:currentUser?.id||null,createdAt:new Date().toISOString(),source:'r4-manager'},...(current.events||[])]}})};
- const openSelected=()=>{if(!selected)return;if(selected.type==='opportunity'){onOpenOpportunities();return}onOpenWork(selected.id,selected.route)};
- return <main className="r4-manager-page">
-  <header className="r4-manager-head"><div><span>Режим менеджера · рабочий день</span><h1>{isManager?`Рабочий стол — ${currentUser.name}`:'Контроль рабочего стола менеджера'}</h1><p>Следующее действие ведёт сразу в нужный этап сделки — без поиска раздела вручную.</p></div>{isManager&&<div className="r4-head-actions"><button onClick={onOpenOpportunities}><Compass/>Тендеры</button><button className="primary" onClick={onNew}><Plus/>Новая сделка</button></div>}</header>
-  <section className="r4-day-strip">
-   <article><Compass/><div><span>Найдено сегодня</span><b>{foundToday}</b></div></article><article><BriefcaseBusiness/><div><span>Активных сделок</span><b>{activeCount}</b></div></article><article className={attentionCount?'warn':''}><AlertTriangle/><div><span>Требуют внимания</span><b>{attentionCount}</b></div></article><article><ArrowRight/><div><span>КП в работе</span><b>{quoteCount}</b></div></article><article><WalletCards/><div><span>Ожидают оплату</span><b>{paymentCount}</b></div></article><article className={overdue?'danger':''}><Clock3/><div><span>Просроченные действия</span><b>{overdue}</b></div></article>
+ const filtered=items.filter(item=>`${item.code} ${item.customer} ${item.title} ${item.action} ${item.stage}`.toLowerCase().includes(query.toLowerCase()));
+ const primary=filtered[0]||null;
+ const overdue=filtered.filter(item=>daysLeft(item.actionDate)<0);
+ const today=filtered.filter(item=>daysLeft(item.actionDate)===0);
+ const upcoming=filtered.filter(item=>daysLeft(item.actionDate)>0&&daysLeft(item.actionDate)<=3);
+ const findings=filtered.filter(item=>item.type==='opportunity');
+ const portfolio=filtered.filter(item=>item.type==='work');
+ const uncheckedPlatforms=(data.platforms||[]).filter(item=>!item.checkedToday).slice(0,6);
+ const waitingPayment=portfolio.filter(item=>['Счет выставлен','Частичная оплата','Просрочено'].includes(item.paymentStatus));
+ const open=item=>item.type==='opportunity'?onOpenOpportunities():onOpenWork(item.id,item.route);
+ const actionCard=(item,index)=><button key={`${item.type}:${item.id}`} className={`day-action ${daysLeft(item.actionDate)<0?'overdue':''}`} onClick={()=>open(item)}><span className="day-action-index">{index+1}</span><div className="day-action-copy"><b>{item.action}</b><span>{item.customer} · {item.title}</span><small>{item.stage} · {deadlineLabel(item.actionDate)}</small></div><ArrowRight/></button>;
+ return <main className="daydesk-page">
+  <header className="daydesk-header">
+   <div><span>Рабочий день</span><h1>{currentUser?.name||'Менеджер'}, вот что важно сейчас</h1><p>Работай сверху вниз. Система сама выводит следующее действие и открывает нужный этап сделки.</p></div>
+   <div className="daydesk-header-actions"><button onClick={onOpenOpportunities}><Compass/>Все тендеры</button><button className="primary" onClick={onNew}><FilePlus2/>Добавить тендер</button></div>
+  </header>
+
+  <section className="daydesk-search"><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Найти тендер, заказчика, сделку или действие"/><kbd>Ctrl K</kbd></section>
+
+  <section className="daydesk-summary">
+   <article className={overdue.length?'danger':''}><AlertTriangle/><div><span>Просрочено</span><b>{overdue.length}</b></div></article>
+   <article><Flame/><div><span>Сегодня обязательно</span><b>{today.length}</b></div></article>
+   <article><Compass/><div><span>Новые тендеры</span><b>{findings.length}</b></div></article>
+   <article><WalletCards/><div><span>Ждём оплату</span><b>{waitingPayment.length}</b></div></article>
+   <article><Target/><div><span>Активные сделки</span><b>{portfolio.length}</b></div></article>
   </section>
-  <nav className="r4-focus-tabs">{focusOptions.map(([id,label])=><button key={id} className={focus===id?'active':''} onClick={()=>setFocus(id)}>{label}<span>{id==='attention'?attentionCount:id==='payments'?paymentCount:id==='all'?rows.length:rows.filter(item=>daysLeft(item.nextActionDate)<=0).length}</span></button>)}</nav>
-  <section className="r4-workbench">
-   <div className="r4-deal-register">
-    <div className="r4-register-toolbar"><label><Search/><input value={query} onChange={event=>setQuery(event.target.value)} placeholder="Сделка, заказчик, предмет или действие"/></label><select value={stage} onChange={event=>setStage(event.target.value)}>{stages.map(item=><option key={item}>{item}</option>)}</select><button className={focus==='attention'?'active':''} onClick={()=>setFocus(focus==='attention'?'all':'attention')}><Filter/>Проблемные</button></div>
-    <div className="r4-table-wrap"><table className="r4-deals-table"><thead><tr><th>Сделка</th><th>Заказчик / предмет</th><th>Стадия</th><th>Следующее действие</th><th>Срок действия</th><th>Выручка</th><th>Маржа</th><th>Оплата</th></tr></thead><tbody>{filtered.map(item=>{const urgent=daysLeft(item.nextActionDate)<=0&&item.stage!=='Завершено';return <tr key={item.key} className={`${selected?.key===item.key?'selected':''} ${urgent?'urgent':''}`} onClick={()=>setSelectedKey(item.key)} onDoubleClick={()=>item.type==='work'?onOpenWork(item.id,item.route):onOpenOpportunities()}><td><b>{item.code}</b><small>{item.type==='opportunity'?'Тендер':'Сделка'}</small></td><td><b>{item.customer}</b><small>{item.title}</small></td><td><span className={`r4-stage ${stageClass(item.stage)}`}>{item.stage}</span></td><td><span className="r4-next">{item.blockers>0&&<AlertTriangle/>}{item.nextAction}</span></td><td className={urgent?'bad':''}>{deadlineText(item.nextActionDate)}</td><td><b>{item.revenue?compact(item.revenue):'—'}</b><small>{item.revenue?money(item.revenue,data.settings?.currency||'RUB'):'Нет расчёта'}</small></td><td>{item.margin==null?'—':`${item.margin.toFixed(1)}%`}</td><td><span className={`r4-payment ${item.paymentStatus==='Оплачено'?'paid':item.paymentStatus==='Просрочено'?'late':''}`}>{item.paymentStatus}</span></td></tr>})}</tbody></table>{!filtered.length&&<div className="r4-empty">В этой очереди сейчас ничего нет.</div>}</div>
-    <footer className="r4-register-footer"><span>{filtered.length} записей</span><span>{filtered.filter(item=>item.type==='opportunity').length} тендеров</span><span>{filtered.filter(item=>item.type==='work').length} сделок</span><span>{money(filtered.reduce((sum,item)=>sum+item.revenue,0),data.settings?.currency||'RUB')} в работе</span></footer>
+
+  <section className="daydesk-grid">
+   <div className="daydesk-main">
+    <section className="daydesk-primary">
+     <div className="section-label"><Flame/>Начать с главного</div>
+     {primary?<article><div><span>{primary.code} · {primary.stage}</span><h2>{primary.action}</h2><p>{primary.customer} · {primary.title}</p><div className="primary-meta"><b>{deadlineLabel(primary.actionDate)}</b>{primary.blockers>0&&<em>{primary.blockers} блокеров</em>}{primary.value>0&&<small>{money(primary.value,data.settings?.currency||'RUB')}</small>}</div></div><button onClick={()=>open(primary)}>Сделать сейчас <ArrowRight/></button></article>:<div className="daydesk-empty"><CheckCircle2/><b>Очередь разобрана</b><span>На сегодня нет активных действий.</span></div>}
+    </section>
+
+    <section className="daydesk-block">
+     <div className="daydesk-block-head"><div><span>Сегодня обязательно</span><h2>{today.length+overdue.length} действий</h2></div><small>Сначала просроченные, затем сегодняшние</small></div>
+     <div className="day-action-list">{[...overdue,...today].slice(0,8).map(actionCard)}{!overdue.length&&!today.length&&<div className="daydesk-empty compact"><CheckCircle2/><span>Срочных действий нет.</span></div>}</div>
+    </section>
+
+    <section className="daydesk-block">
+     <div className="daydesk-block-head"><div><span>Следующие 3 дня</span><h2>Ближайшая работа</h2></div><small>{upcoming.length} действий</small></div>
+     <div className="day-action-list">{upcoming.slice(0,6).map(actionCard)}{!upcoming.length&&<div className="daydesk-empty compact"><CheckCircle2/><span>Ближайшая очередь свободна.</span></div>}</div>
+    </section>
    </div>
-   <aside className="r4-deal-panel">{selected?<><div className="r4-panel-top"><div><span>{selected.type==='opportunity'?'Найденный тендер':selected.code}</span><h2>{selected.customer}</h2><p>{selected.title}</p></div><button onClick={()=>setSelectedKey('')}><X/></button></div><div className="r4-panel-stage"><span className={`r4-stage ${stageClass(selected.stage)}`}>{selected.stage}</span><b>{selected.progress}%</b><div><i style={{width:`${selected.progress}%`}}/></div></div><section className="r4-action-card"><span>Сделать сейчас</span><h3>{selected.nextAction}</h3><div><CalendarClock/><b>{deadlineText(selected.nextActionDate)}</b>{selected.blockers>0&&<em>{selected.blockers} блокеров</em>}</div><button className="primary" onClick={openSelected}>{selected.type==='work'?`Открыть: ${routeLabels[selected.route]||'сделку'}`:'Открыть карточку тендера'} <ArrowRight/></button></section>{selected.type==='work'?<><section className="r4-panel-section"><div className="r4-section-title"><span>Оперативные данные</span><b>{isManager?'Можно редактировать':'Только просмотр'}</b></div><label>Следующее действие<input disabled={!isManager} value={selected.raw.nextAction||''} onChange={event=>updateWork(selected.id,{nextAction:event.target.value},'Изменено следующее действие')}/></label><label>Срок следующего действия<input disabled={!isManager} type="date" value={selected.raw.nextActionDate||selected.raw.deadline||''} onChange={event=>updateWork(selected.id,{nextActionDate:event.target.value},'Изменён срок следующего действия')}/></label><label>Стадия сделки<select disabled={!isManager} value={selected.status} onChange={event=>updateWork(selected.id,{state:event.target.value},'Изменена стадия сделки')}>{WORK_STATES.map(item=><option key={item}>{item}</option>)}</select></label><label>Статус оплаты<select disabled={!isManager} value={selected.paymentStatus} onChange={event=>updateWork(selected.id,{paymentStatus:event.target.value},'Изменён статус оплаты')}>{paymentOptions.map(item=><option key={item}>{item}</option>)}</select></label><label>Плановая дата оплаты<input disabled={!isManager} type="date" value={selected.expectedPaymentDate} onChange={event=>updateWork(selected.id,{expectedPaymentDate:event.target.value},'Изменена плановая дата оплаты')}/></label></section><section className="r4-economy"><div><span>Продажа</span><b>{money(selected.revenue,data.settings?.currency||'RUB')}</b></div><div><span>Валовая прибыль</span><b>{money(selected.grossProfit,data.settings?.currency||'RUB')}</b></div><div><span>Чистая прибыль</span><b>{data.settings?.managerCanSeeNetProfit===false&&isManager?'Скрыто':money(selected.netProfit,data.settings?.currency||'RUB')}</b></div><div><span>Маржа сделки</span><b>{selected.margin==null?'—':`${selected.margin.toFixed(1)}%`}</b></div></section></>:<section className="r4-panel-section opportunity"><Compass/><h3>{selected.raw.captureIncomplete?'Дополнить тендер':'Оценить тендер'}</h3><p>{selected.raw.captureIncomplete?'Заполните заказчика, предмет и срок подачи, затем проведите экспресс-анализ.':'Проверьте профиль, производителя, срок и коммерческий интерес, затем переведите закупку в сделку.'}</p></section>}<section className="r4-lifecycle"><span>Путь сделки</span>{['Поиск','Анализ','ТКП','КП','Контракт','Производство','Поставка','Оплата'].map((item,index)=><div key={item} className={index<=Math.round(selected.progress/100*7)?'done':''}><i>{index<Math.round(selected.progress/100*7)?<CheckCircle2/>:index+1}</i><b>{item}</b></div>)}</section></>:<div className="r4-panel-empty"><BriefcaseBusiness/><b>Выберите строку</b><span>Справа появится следующее действие и быстрый переход к нужному этапу.</span></div>}</aside>
+
+   <aside className="daydesk-side">
+    <section className="search-round"><div className="section-label"><Search/>Поиск тендеров</div><h2>Что проверить сейчас</h2>{uncheckedPlatforms.length?uncheckedPlatforms.map(platform=><button key={platform.id} onClick={onOpenOpportunities}><span><b>{platform.name}</b><small>{platform.url||'Открыть площадку и проверить новые закупки'}</small></span><ExternalLink/></button>):<div className="daydesk-empty compact"><CheckCircle2/><span>Все площадки сегодня проверены.</span></div>}<button className="search-all" onClick={onOpenOpportunities}>Открыть журнал поиска <ArrowRight/></button></section>
+
+    <section className="new-findings"><div className="section-label"><Compass/>Новые находки</div><h2>{findings.length} ждут решения</h2>{findings.slice(0,5).map(item=><button key={item.id} onClick={()=>open(item)}><div><b>{item.customer}</b><span>{item.title}</span><small>{item.stage} · {deadlineLabel(item.actionDate)}</small></div><ArrowRight/></button>)}{!findings.length&&<div className="daydesk-empty compact"><span>Новых тендеров пока нет.</span></div>}</section>
+
+    <section className="daydesk-kpi"><div className="section-label"><Target/>Мой портфель</div><div><span>Сделок</span><b>{portfolio.length}</b></div><div><span>Сумма в работе</span><b>{money(portfolio.reduce((sum,item)=>sum+item.value,0),data.settings?.currency||'RUB')}</b></div><div><span>Требуют внимания</span><b>{portfolio.filter(item=>item.blockers>0||daysLeft(item.actionDate)<=1).length}</b></div></section>
+   </aside>
   </section>
  </main>;
 }
