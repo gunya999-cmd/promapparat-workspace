@@ -19,7 +19,7 @@ export function mergeWorkspaceByRole(current,incoming,role){
   if(!(key in candidate))continue;
   const before=JSON.stringify(base[key]??null),after=JSON.stringify(candidate[key]??null);
   if(before===after)continue;
-  next[key]=candidate[key];changed.push(key];
+  next[key]=candidate[key];changed.push(key);
  }
  for(const key of SYSTEM_SECTIONS)if(key in base)next[key]=base[key];
  return{data:next,changedSections:changed,ignoredSections:Object.keys(candidate).filter(key=>!allowed.has(key)&&!SYSTEM_SECTIONS.has(key))};
