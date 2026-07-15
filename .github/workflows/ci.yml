@@ -37,8 +37,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20.19.0'
-          cache: npm
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
+      - run: npm install
       - run: find src scripts test -name '*.js' -print0 | xargs -0 -n1 node --check
       - run: npm test
