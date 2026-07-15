@@ -16,6 +16,20 @@ function Invoke-Checked {
   if ($LASTEXITCODE -ne 0) { throw $ErrorMessage }
 }
 
+function Invoke-NativeCapture {
+  param([scriptblock]$Command)
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "Continue"
+    $output = (& $Command 2>&1 | Out-String)
+    $exitCode = $LASTEXITCODE
+    return @{ Output = $output; ExitCode = $exitCode }
+  }
+  finally {
+    $ErrorActionPreference = $previousPreference
+  }
+}
+
 function ConvertFrom-SecureText {
   param([Security.SecureString]$Value)
   $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Value)
@@ -40,9 +54,10 @@ try {
   if ($config -match "REPLACE_WITH_D1_DATABASE_ID") {
     if (-not $DatabaseId) {
       Write-Host "Creating D1 database promapparat-workspace..." -ForegroundColor Cyan
-      $createOutput = (& npx wrangler d1 create promapparat-workspace 2>&1 | Out-String)
-      Write-Host $createOutput
-      if ($createOutput -match 'database_id\s*=\s*"([^"]+)"') {
+      $createResult = Invoke-NativeCapture { npx wrangler d1 create promapparat-workspace }
+      Write-Host $createResult.Output
+      if ($createResult.ExitCode -ne 0) { throw "D1 database creation failed." }
+      if ($createResult.Output -match 'database_id\s*=\s*"([^"]+)"') {
         $DatabaseId = $Matches[1]
       } else {
         throw "Could not detect database_id. Run 'npx wrangler d1 list' and rerun with -DatabaseId <ID>."
@@ -64,9 +79,10 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "Failed to save BOOTSTRAP_SECRET." }
 
   Write-Host "Deploying Worker..." -ForegroundColor Cyan
-  $deployOutput = (& npx wrangler deploy 2>&1 | Out-String)
-  Write-Host $deployOutput
-  if ($LASTEXITCODE -ne 0) { throw "Worker deployment failed." }
+  $deployResult = Invoke-NativeCapture { npx wrangler deploy }
+  Write-Host $deployResult.Output
+  if ($deployResult.ExitCode -ne 0) { throw "Worker deployment failed." }
+  $deployOutput = $deployResult.Output
 
   if (-not $WorkerUrl -and $deployOutput -match 'https://[a-zA-Z0-9.-]+\.workers\.dev') {
     $WorkerUrl = $Matches[0].TrimEnd('/')
