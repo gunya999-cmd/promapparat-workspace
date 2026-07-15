@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: promapparat-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    branch: main
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /ready
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    buildFilter:
+      paths:
+        - backend/**
+        - render.yaml
+    disk:
+      name: promapparat-files
+      mountPath: /var/data
+      sizeGB: 5
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: promapparat-db
+          property: connectionString
+      - key: DATABASE_SSL
+        value: "false"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_ISSUER
+        value: promapparat-workspace
+      - key: JWT_AUDIENCE
+        value: promapparat-web
+      - key: CORS_ORIGINS
+        value: https://promapparat-workspace.pages.dev
+      - key: FILE_STORAGE_DIR
+        value: /var/data/promapparat
+      - key: MAX_FILE_SIZE_MB
+        value: "50"
+      - key: SEED_ON_START
+        value: "true"
+      - key: SEED_ORGANIZATION_NAME
+        value: ПО Промаппарат
+      - key: SEED_DIRECTOR_EMAIL
+        sync: false
+      - key: SEED_DIRECTOR_PASSWORD
+        sync: false
+
+databases:
+  - name: promapparat-db
+    region: frankfurt
+    plan: basic-256mb
+    databaseName: promapparat
+    user: promapparat_app
+    ipAllowList: []
