@@ -20,5 +20,6 @@ import'./tender-capture.css';
 import'./windows-workflow.css';
 import'./attachment-flow.css';
 import'./server-mode.css';
+import'./manager-daydesk.css';
 
 createRoot(document.getElementById('root')).render(<Root/>);
