@@ -64,6 +64,21 @@ export function updateOpportunityFields(state,id,patch,actor){
  return{...state,opportunities:state.opportunities.map(item=>item.id===id?next:item),events:[event('opportunity','Изменен тендер',`${next.customer} · ${changed.join(', ')}`,actor,{entityId:id,oldValue:current,newValue:next}),...(state.events||[])]};
 }
 
+export function setOpportunityStatus(state,id,status,actor){
+ if(!OPPORTUNITY_STATUSES.includes(status))throw new Error('Неизвестный статус тендера');
+ const current=(state.opportunities||[]).find(item=>item.id===id);if(!current)throw new Error('Возможность не найдена');
+ if(status==='Взята в работу'&&!current.workId)throw new Error('Используйте кнопку «Взять в работу», чтобы создать сделку');
+ const next={...current,status,updatedAt:now(),updatedBy:actor?.id||null};
+ if(status!=='Отказ'){delete next.rejectionReason;delete next.rejectionNote}
+ return{...state,opportunities:(state.opportunities||[]).map(item=>item.id===id?next:item),events:[event('opportunity','Изменен статус тендера',`${current.status} → ${status}`,actor,{entityId:id,oldValue:{status:current.status},newValue:{status}}),...(state.events||[])]};
+}
+
+export function deleteOpportunities(state,ids,actor){
+ const targets=[...new Set(ids||[])],items=(state.opportunities||[]).filter(item=>targets.includes(item.id));if(!items.length)throw new Error('Не выбраны тендеры для удаления');
+ const linked=items.filter(item=>item.workId);if(linked.length)throw new Error('Нельзя удалить тендер, уже связанный со сделкой');
+ return{...state,opportunities:(state.opportunities||[]).filter(item=>!targets.includes(item.id)),events:[event('opportunity','Удалены тендеры',items.map(item=>item.customer||item.title).join(', '),actor,{entityId:null,oldValue:{ids:targets}}),...(state.events||[])]};
+}
+
 export function bulkUpdateOpportunities(state,ids,patch,actor){
  const unique=[...new Set(ids||[])],existing=new Set((state.opportunities||[]).map(item=>item.id)),valid=unique.filter(id=>existing.has(id));if(!valid.length)throw new Error('Не выбраны возможности');
  let next=state;for(const id of valid)next=updateOpportunityFields(next,id,patch,actor);
