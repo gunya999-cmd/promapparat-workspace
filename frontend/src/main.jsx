@@ -21,5 +21,6 @@ import'./windows-workflow.css';
 import'./attachment-flow.css';
 import'./server-mode.css';
 import'./manager-daydesk.css';
+import'./manager-excel.css';
 
 createRoot(document.getElementById('root')).render(<Root/>);
