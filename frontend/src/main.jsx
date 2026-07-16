@@ -22,5 +22,6 @@ import'./attachment-flow.css';
 import'./server-mode.css';
 import'./manager-daydesk.css';
 import'./manager-excel.css';
+import'./manager-tender-workspace.css';
 
 createRoot(document.getElementById('root')).render(<Root/>);
