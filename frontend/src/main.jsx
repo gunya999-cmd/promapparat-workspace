@@ -1,27 +1,6 @@
 import React from'react';
 import{createRoot}from'react-dom/client';
 import Root from'./Root.jsx';
-import'./styles.css';
-import'./dashboard.css';
-import'./stabilization.css';
-import'./v2-shell.css';
-import'./v2-rail.css';
-import'./tender-command.css';
-import'./opportunities.css';
-import'./opportunity-route.css';
-import'./opportunity-sheet.css';
-import'./director.css';
-import'./director-finance.css';
-import'./r4-manager.css';
-import'./r4-manager-focus.css';
-import'./r4-role-fixes.css';
-import'./r4-copy-fixes.css';
-import'./tender-capture.css';
-import'./windows-workflow.css';
-import'./attachment-flow.css';
-import'./server-mode.css';
-import'./manager-daydesk.css';
-import'./manager-excel.css';
-import'./manager-tender-workspace.css';
+import'./clean-input.css';
 
 createRoot(document.getElementById('root')).render(<Root/>);
