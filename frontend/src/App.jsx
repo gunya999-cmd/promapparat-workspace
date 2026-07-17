@@ -1,68 +1,46 @@
-import React,{useEffect,useMemo,useRef,useState}from'react';
+import React,{useMemo,useState}from'react';
+import{Plus,Search,Trash2}from'lucide-react';
 import{logout}from'./api/client.js';
-import{calculateWork}from'./domain/workspace.js';
-import{createWorkCommand}from'./domain/commands.js';
-import{demoOpportunities,demoPlatforms}from'./domain/opportunities.js';
-import{userForRole}from'./domain/users.js';
 import{useWorkspace}from'./store/useWorkspace.js';
-import{WorkRail}from'./components/WorkRail.jsx';
-import{CommandBar}from'./components/CommandBar.jsx';
-import{WorkContextPanel}from'./components/WorkContextPanel.jsx';
-import{WorkspaceView}from'./components/WorkspaceView.jsx';
-import{PositionPanel}from'./components/PositionPanel.jsx';
-import{NewWorkModal}from'./components/NewWorkModal.jsx';
-import{QuickTenderCapture}from'./components/QuickTenderCapture.jsx';
-import{SuppliersView}from'./components/SuppliersView.jsx';
-import{DashboardView}from'./components/DashboardView.jsx';
-import{OpportunityEngine}from'./components/OpportunityEngine.jsx';
-import{R4ManagerWorkspace}from'./components/R4ManagerWorkspace.jsx';
-import{DirectorView}from'./components/DirectorView.jsx';
-import{DirectorFinanceCenter}from'./components/DirectorFinanceCenter.jsx';
-import{FormulaDashboard}from'./components/FormulaDashboard.jsx';
-import{SystemSettings}from'./components/SystemSettings.jsx';
+
+const emptyForm=()=>({id:'',number:'',date:new Date().toISOString().slice(0,10),customer:'',title:'',sourceUrl:'',deadline:'',processBy:'',requestType:'Тендер',status:'Новая',notes:''});
+const makeId=()=>globalThis.crypto?.randomUUID?.()||`req-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 export default function App({serverSession=null}){
- const workspace=useWorkspace({serverSession}),{data,setData}=workspace,captureHandled=useRef(false);
- const currentUser=data.currentUser||{id:'u-director',name:'Директор',role:'director'},isDirector=currentUser.role==='director';
- const[section,setSection]=useState(isDirector?'director':'manager'),[activeId,setActiveId]=useState('w1'),[workInitialTab,setWorkInitialTab]=useState(''),[selectedId,setSelectedId]=useState(null),[query,setQuery]=useState(''),[showNew,setShowNew]=useState(false),[showTenderCapture,setShowTenderCapture]=useState(false),[captureInput,setCaptureInput]=useState(''),[focusOpportunityId,setFocusOpportunityId]=useState(''),[notice,setNotice]=useState('');
- useEffect(()=>{setSection(isDirector?'director':'manager');setSelectedId(null);setShowNew(false);setShowTenderCapture(false)},[currentUser.id,currentUser.role,isDirector]);
- useEffect(()=>{if(workspace.serverManaged)return;if(!data.meta?.opportunityInitialized&&!(data.platforms||[]).length&&!(data.opportunities||[]).length)setData(current=>({...current,platforms:demoPlatforms(),opportunities:demoOpportunities(),meta:{...current.meta,opportunityInitialized:true}}))},[workspace.serverManaged,data.meta?.opportunityInitialized,data.platforms?.length,data.opportunities?.length,setData]);
- useEffect(()=>{if(!notice)return;const timer=setTimeout(()=>setNotice(''),3600);return()=>clearTimeout(timer)},[notice]);
- useEffect(()=>{const hotkey=event=>{if(isDirector)return;if(event.ctrlKey&&event.altKey&&event.key.toLowerCase()==='t'){event.preventDefault();setCaptureInput('');setShowTenderCapture(true)}};window.addEventListener('keydown',hotkey);return()=>window.removeEventListener('keydown',hotkey)},[isDirector]);
- useEffect(()=>{if(captureHandled.current)return;const params=new URLSearchParams(window.location.search);if(params.get('capture')!=='1')return;captureHandled.current=true;const text=[params.get('title'),params.get('text'),params.get('url')].filter(Boolean).join('\n');if(isDirector&&workspace.serverManaged)setNotice('Добавление тендера доступно пользователю с ролью менеджера');else{setCaptureInput(text);if(isDirector){const manager=userForRole(data,'manager');if(manager)setData(current=>({...current,currentUser:manager,meta:{...current.meta,updatedAt:new Date().toISOString()}}))}}params.delete('capture');params.delete('title');params.delete('text');params.delete('url');const next=`${window.location.pathname}${params.toString()?`?${params}`:''}${window.location.hash}`;window.history.replaceState({},'',next)},[data,isDirector,setData,workspace.serverManaged]);
- useEffect(()=>{if(captureInput&&!isDirector)setShowTenderCapture(true)},[captureInput,isDirector]);
- const protectedSections=new Set(['director','finance','formulas','system']);
- const visibleSection=!isDirector&&protectedSections.has(section)?'manager':isDirector&&section==='manager'?'director':section;
- const works=useMemo(()=>(data.works||[]).map(work=>calculateWork(work,data.positions||[],data.suppliers||[],data.settings,data.formulas)),[data]);
- const roleWorks=isDirector?works:works.filter(work=>work.manager===currentUser.name);
- const filtered=roleWorks.filter(work=>`${work.customer} ${work.title} ${work.code}`.toLowerCase().includes(query.toLowerCase()));
- const active=roleWorks.find(work=>work.id===activeId)||roleWorks[0]||null,selected=active?.positions.find(position=>position.id===selectedId)||null;
- const createWork=form=>{if(isDirector)return;try{const result=createWorkCommand(data,form,currentUser);setData(result.state);setActiveId(result.work.id);setWorkInitialTab('overview');setSection('works');setShowNew(false);setNotice('Сделка создана')}catch(error){setNotice(error?.message||'Не удалось создать сделку')}};
- const openWork=(id,initialTab='')=>{setActiveId(id);setWorkInitialTab(initialTab);setSelectedId(null);setSection('works')};
- const navigate=value=>{if(!isDirector&&protectedSections.has(value))value='manager';if(isDirector&&value==='manager')value='director';setSection(value);setSelectedId(null)};
- const switchRole=role=>{if(workspace.serverManaged)return;const user=userForRole(data,role);if(!user)return;setData(current=>({...current,currentUser:user,meta:{...current.meta,updatedAt:new Date().toISOString()}}));setNotice(role==='manager'?`Открыт рабочий стол: ${user.name}`:'Открыта сводка компании')};
- const openTenderCapture=()=>{if(isDirector)return;setCaptureInput('');setShowTenderCapture(true)};
- const closeTenderCapture=()=>{setShowTenderCapture(false);setCaptureInput('')};
- const tenderSaved=opportunity=>{const failed=(opportunity?.attachments||[]).filter(item=>item.storedLocally===false&&!item.storedOnServer).length;closeTenderCapture();setFocusOpportunityId(opportunity?.id||'');setSection('opportunities');setSelectedId(null);setNotice(failed?`Тендер сохранён, но ${failed} файл(а) не сохранились.`:opportunity?.captureIncomplete?'Тендер сохранён. Дополните карточку перед оценкой.':'Тендер и файлы добавлены в очередь «Новые»')};
- const showContext=visibleSection==='works'&&active;
- if(workspace.loading)return <main className="server-loading"><div><i/><b>Загружаю рабочее пространство</b><span>Получаем актуальные данные компании…</span></div></main>;
- return <div className={`v2-shell ${showContext?'with-context':''}`}>
-  <WorkRail works={filtered} activeId={active?.id} onSelect={openWork} onNew={()=>!isDirector&&setShowNew(true)} query={query} setQuery={setQuery} section={visibleSection} setSection={navigate} currentUser={currentUser} isAdmin={isDirector}/>
-  <CommandBar works={roleWorks} users={data.users||[]} currentUser={currentUser} onOpenWork={openWork} onAddTender={openTenderCapture} onSwitchRole={switchRole} onLogout={()=>logout()} serverManaged={workspace.serverManaged} syncState={workspace.syncState} onReload={workspace.reloadFromServer} section={visibleSection}/>
-  <div className="v2-content">
-   {visibleSection==='manager'&&!isDirector&&<R4ManagerWorkspace data={data} setData={setData} works={roleWorks} currentUser={currentUser} onOpenWork={openWork} onOpenOpportunities={()=>navigate('opportunities')} onNew={()=>setShowNew(true)}/>} 
-   {visibleSection==='opportunities'&&<OpportunityEngine data={data} setData={setData} currentUser={currentUser} onOpenWork={openWork} onAddTender={openTenderCapture} focusOpportunityId={focusOpportunityId}/>} 
-   {visibleSection==='director'&&isDirector&&<DirectorView data={data} works={works} onOpenWork={openWork}/>} 
-   {visibleSection==='finance'&&isDirector&&<DirectorFinanceCenter data={data} setData={setData} works={works} onOpenWork={openWork} currentUser={currentUser}/>} 
-   {visibleSection==='dashboard'&&!isDirector&&<DashboardView works={roleWorks} data={data} currentUser={currentUser} settings={data.settings} onOpenWork={openWork}/>} 
-   {visibleSection==='works'&&active&&<WorkspaceView work={active} data={data} setData={setData} selectedId={selectedId} setSelectedId={setSelectedId} currentUser={currentUser} initialTab={workInitialTab}/>} 
-   {visibleSection==='suppliers'&&<SuppliersView data={data} setData={setData} currentUser={currentUser}/>} 
-   {visibleSection==='formulas'&&isDirector&&<FormulaDashboard data={data} setData={setData} currentUser={currentUser}/>} 
-   {visibleSection==='system'&&isDirector&&<SystemSettings data={data} setData={setData} currentUser={currentUser} serverManaged={workspace.serverManaged} onServerChanged={workspace.reloadFromServer} storageError={workspace.storageError} exportBackup={workspace.exportBackup} importBackup={workspace.importBackup} restoreBackup={workspace.restoreBackup} createSnapshot={workspace.createSnapshot} reset={workspace.reset}/>} 
-  </div>
-  {showContext&&(selected&&!isDirector?<PositionPanel position={selected} data={data} setData={setData} onClose={()=>setSelectedId(null)} currentUser={currentUser}/>:<WorkContextPanel work={active} data={data} readOnly={isDirector} onSelectPosition={setSelectedId}/>)}
-  {showNew&&!isDirector&&<NewWorkModal currentUser={currentUser} onClose={()=>setShowNew(false)} onSave={createWork}/>} 
-  {showTenderCapture&&!isDirector&&<QuickTenderCapture data={data} setData={setData} currentUser={currentUser} initialCapture={captureInput} onClose={closeTenderCapture} onSaved={tenderSaved}/>} 
-  {notice&&<div className="app-toast" role="status">{notice}</div>}
- </div>;
+ const workspace=useWorkspace({serverSession}),{data,setData}=workspace;
+ const[form,setForm]=useState(emptyForm),[query,setQuery]=useState(''),[error,setError]=useState('');
+ const rows=useMemo(()=>Array.isArray(data.requestsV1)?data.requestsV1:[],[data.requestsV1]);
+ const filtered=rows.filter(item=>`${item.number} ${item.customer} ${item.title} ${item.sourceUrl}`.toLowerCase().includes(query.toLowerCase()));
+ const change=(field,value)=>setForm(current=>({...current,[field]:value}));
+ const clear=()=>{setForm(emptyForm());setError('')};
+ const edit=item=>{setForm({...emptyForm(),...item});setError('');window.scrollTo({top:0,behavior:'smooth'})};
+ const save=event=>{event.preventDefault();const customer=form.customer.trim(),title=form.title.trim();if(!customer||!title){setError('Заполните заказчика и предмет закупки.');return}const record={...form,id:form.id||makeId(),customer,title,updatedAt:new Date().toISOString()};setData(current=>{const list=Array.isArray(current.requestsV1)?current.requestsV1:[],exists=list.some(item=>item.id===record.id);return{...current,requestsV1:exists?list.map(item=>item.id===record.id?record:item):[record,...list]}});clear()};
+ const remove=id=>{if(!window.confirm('Удалить эту заявку?'))return;setData(current=>({...current,requestsV1:(current.requestsV1||[]).filter(item=>item.id!==id)}));if(form.id===id)clear()};
+ if(workspace.loading)return <main className="input-loading">Загрузка…</main>;
+ return <main className="input-app">
+  <header className="input-topbar"><div><b>Промаппарат</b><span>Этап 1 · ввод заявок</span></div>{serverSession&&<button onClick={()=>logout()}>Выйти</button>}</header>
+  <section className="input-layout">
+   <form className="input-form" onSubmit={save}>
+    <div className="input-form-head"><div><span>{form.id?'Редактирование':'Новая заявка'}</span><h1>Ввод данных</h1></div>{form.id&&<button type="button" onClick={clear}>Новая</button>}</div>
+    {error&&<div className="input-error">{error}</div>}
+    <div className="input-grid">
+     <label>№ заявки<input value={form.number} onChange={e=>change('number',e.target.value)}/></label>
+     <label>Дата<input type="date" value={form.date} onChange={e=>change('date',e.target.value)}/></label>
+     <label>Обработать до<input type="date" value={form.processBy} onChange={e=>change('processBy',e.target.value)}/></label>
+     <label>Срок подачи<input type="date" value={form.deadline} onChange={e=>change('deadline',e.target.value)}/></label>
+     <label className="wide">Заказчик *<input value={form.customer} onChange={e=>change('customer',e.target.value)} placeholder="Название организации"/></label>
+     <label className="wide">Предмет закупки *<input value={form.title} onChange={e=>change('title',e.target.value)} placeholder="Что закупают"/></label>
+     <label>Характер заявки<select value={form.requestType} onChange={e=>change('requestType',e.target.value)}><option>Тендер</option><option>Запрос цены</option><option>Текущая потребность</option><option>Другое</option></select></label>
+     <label>Статус<select value={form.status} onChange={e=>change('status',e.target.value)}><option>Новая</option><option>В работе</option><option>Отложена</option><option>Закрыта</option></select></label>
+     <label className="full">Ссылка<input type="url" value={form.sourceUrl} onChange={e=>change('sourceUrl',e.target.value)} placeholder="https://"/></label>
+     <label className="full">Комментарий<textarea value={form.notes} onChange={e=>change('notes',e.target.value)} rows="4"/></label>
+    </div>
+    <div className="input-actions"><button type="button" onClick={clear}>Очистить</button><button className="primary" type="submit">{form.id?'Сохранить изменения':'Сохранить заявку'}</button></div>
+   </form>
+   <section className="input-register">
+    <div className="input-register-head"><div><h2>Заявки</h2><span>{rows.length}</span></div><label><Search/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Поиск"/></label></div>
+    <div className="input-table-wrap"><table><thead><tr><th>№</th><th>Дата</th><th>Заказчик</th><th>Предмет</th><th>Срок</th><th>Статус</th><th></th></tr></thead><tbody>{filtered.map(item=><tr key={item.id} onDoubleClick={()=>edit(item)}><td>{item.number||'—'}</td><td>{item.date||'—'}</td><td><button className="row-open" onClick={()=>edit(item)}>{item.customer}</button></td><td>{item.title}</td><td>{item.deadline||'—'}</td><td>{item.status}</td><td><button className="row-delete" onClick={()=>remove(item.id)} title="Удалить"><Trash2/></button></td></tr>)}</tbody></table>{!filtered.length&&<div className="input-empty"><Plus/><b>Заявок пока нет</b><span>Заполните форму и нажмите «Сохранить заявку».</span></div>}</div>
+   </section>
+  </section>
+ </main>;
 }
