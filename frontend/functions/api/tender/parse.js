@@ -9,7 +9,7 @@ async function parseTekTorg(url,target){
  const id=procedureId(url);if(!id)throw new Error('Не удалось определить номер процедуры Tek-Torg.');
  const canonical=`https://www.tektorg.ru${target.pathname}`;
  const readerUrl=`https://r.jina.ai/http://${canonical.replace(/^https?:\/\//,'')}`;
- const response=await fetch(readerUrl,{headers:{'accept':'text/plain','user-agent':'PromapparatTenderAdapter/1.0'}});
+ const response=await fetch(readerUrl,{headers:{accept:'text/plain','user-agent':'PromapparatTenderAdapter/1.0'}});
  if(!response.ok)throw new Error(`Адаптер Tek-Torg не получил страницу: ${response.status}.`);
  const source=await response.text();
  if(!source||/session|сеанс работы|защит[аы] от ботов|captcha|ddos/i.test(source))throw new Error('Tek-Torg не отдал данные даже через адаптер.');
@@ -31,7 +31,7 @@ async function fetchHtml(url){
   const normalized=current.replace(/^https:\/\/www\.tektorg\.ru/i,'https://tektorg.ru');
   if(visited.has(normalized))throw new Error('Площадка зациклила перенаправление.');
   visited.add(normalized);
-  const response=await fetch(normalized,{redirect:'manual',headers:{'user-agent':'Mozilla/5.0 (compatible; PromapparatTenderParser/1.0)','accept':'text/html,application/xhtml+xml'}});
+  const response=await fetch(normalized,{redirect:'manual',headers:{'user-agent':'Mozilla/5.0 (compatible; PromapparatTenderParser/1.0)',accept:'text/html,application/xhtml+xml'}});
   if([301,302,303,307,308].includes(response.status)){const location=response.headers.get('location');if(!location)throw new Error('Площадка вернула пустое перенаправление.');current=new URL(location,normalized).toString();continue}
   return response;
  }
@@ -50,7 +50,7 @@ export async function onRequestPost({request}){
   const html=await response.text();if(html.length>5_000_000)return Response.json({error:'Страница слишком большая для обработки.'},{status:422});
   const plain=clean(html),title=meta(html,'og:title')||first(html,[/<h1[^>]*>([\s\S]*?)<\/h1>/i,/<title[^>]*>([\s\S]*?)<\/title>/i]);
   const description=meta(html,'og:description')||meta(html,'description')||'';
-  const number=label(plain,['Номер закупки','Номер извещения','Номер тендера','Закупка №','Извещение №','Номер процедуры'])||first(url,[[?&](?:noticeId|purchaseNumber|tenderId|id)=([^&]+)/i,/\/(\d{6,})(?:\/|$|\?)/]);
+  const number=label(plain,['Номер закупки','Номер извещения','Номер тендера','Закупка №','Извещение №','Номер процедуры'])||first(url, [/[?&](?:noticeId|purchaseNumber|tenderId|id)=([^&]+)/i,/\/(\d{6,})(?:\/|$|\?)/]);
   const customer=label(plain,['Заказчик','Наименование заказчика','Организатор закупки','Организатор']);
   const deadlineRaw=label(plain,['Окончание подачи заявок','Дата окончания подачи заявок','Срок подачи заявок','Прием заявок до','Дата и время окончания подачи']);
   const publishRaw=label(plain,['Дата публикации','Размещено','Дата размещения','Опубликовано']);
