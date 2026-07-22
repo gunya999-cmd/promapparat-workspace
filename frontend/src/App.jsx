@@ -12,21 +12,20 @@ const draftHasContent=form=>Boolean(form.id||form.number||form.customer||form.ti
 
 export default function App({serverSession=null}){
  const workspace=useWorkspace({serverSession}),{data,setData}=workspace;
- const customerRef=useRef(null);
+ const customerRef=useRef(null),skipDraftRef=useRef(false);
  const[form,setForm]=useState(()=>{try{const saved=localStorage.getItem(DRAFT_KEY);return saved?normalizeForm(JSON.parse(saved)):emptyForm()}catch{return emptyForm()}});
  const[query,setQuery]=useState(''),[statusFilter,setStatusFilter]=useState('Все'),[error,setError]=useState(''),[notice,setNotice]=useState(''),[draftSavedAt,setDraftSavedAt]=useState(null);
  const rows=useMemo(()=>Array.isArray(data.requestsV1)?data.requestsV1:[],[data.requestsV1]);
  const filtered=useMemo(()=>rows.filter(item=>(statusFilter==='Все'||item.status===statusFilter)&&`${item.number||''} ${item.customer||''} ${item.title||''} ${item.sourceUrl||''}`.toLowerCase().includes(query.trim().toLowerCase())).sort((a,b)=>String(b.updatedAt||b.date||'').localeCompare(String(a.updatedAt||a.date||''))),[rows,query,statusFilter]);
  const filledPositions=(form.positions||[]).filter(item=>item.name||item.description||item.comment);
 
- useEffect(()=>{const timer=setTimeout(()=>{try{if(draftHasContent(form)){localStorage.setItem(DRAFT_KEY,JSON.stringify(form));setDraftSavedAt(new Date())}else localStorage.removeItem(DRAFT_KEY)}catch{}},350);return()=>clearTimeout(timer)},[form]);
- useEffect(()=>{const beforeUnload=event=>{if(!draftHasContent(form))return;event.preventDefault();event.returnValue=''};window.addEventListener('beforeunload',beforeUnload);return()=>window.removeEventListener('beforeunload',beforeUnload)},[form]);
+ useEffect(()=>{if(skipDraftRef.current){skipDraftRef.current=false;return}const timer=setTimeout(()=>{try{if(draftHasContent(form)){localStorage.setItem(DRAFT_KEY,JSON.stringify(form));setDraftSavedAt(new Date())}else localStorage.removeItem(DRAFT_KEY)}catch{}},350);return()=>clearTimeout(timer)},[form]);
 
  const change=(field,value)=>{setForm(current=>({...current,[field]:value}));setError('');setNotice('')};
  const focusCustomer=()=>setTimeout(()=>customerRef.current?.focus(),0);
- const clear=()=>{setForm(emptyForm());setError('');setNotice('');setDraftSavedAt(null);try{localStorage.removeItem(DRAFT_KEY)}catch{}focusCustomer()};
- const edit=item=>{setForm(normalizeForm(item));setError('');setNotice('');window.scrollTo({top:0,behavior:'smooth'});focusCustomer()};
- const duplicateRequest=item=>{const copy=normalizeForm({...item,id:'',number:'',date:new Date().toISOString().slice(0,10),status:'Новая',updatedAt:'',createdAt:'',positions:(item.positions||[]).map(position=>({...position,id:makeId()}))});setForm(copy);setError('');setNotice('Создана копия заявки. Проверьте номер и даты перед сохранением.');focusCustomer()};
+ const clear=()=>{skipDraftRef.current=true;setForm(emptyForm());setError('');setNotice('');setDraftSavedAt(null);try{localStorage.removeItem(DRAFT_KEY)}catch{}focusCustomer()};
+ const edit=item=>{skipDraftRef.current=true;try{localStorage.removeItem(DRAFT_KEY)}catch{}setDraftSavedAt(null);setForm(normalizeForm(item));setError('');setNotice('');window.scrollTo({top:0,behavior:'smooth'});focusCustomer()};
+ const duplicateRequest=item=>{skipDraftRef.current=false;const copy=normalizeForm({...item,id:'',number:'',date:new Date().toISOString().slice(0,10),status:'Новая',updatedAt:'',createdAt:'',positions:(item.positions||[]).map(position=>({...position,id:makeId()}))});setForm(copy);setError('');setNotice('Создана копия заявки. Проверьте номер и даты перед сохранением.');focusCustomer()};
  const remove=id=>{if(!window.confirm('Удалить эту заявку?'))return;setData(current=>({...current,requestsV1:(current.requestsV1||[]).filter(item=>item.id!==id)}));if(form.id===id)clear()};
 
  const updatePosition=(id,field,value)=>setForm(current=>({...current,positions:current.positions.map(item=>item.id===id?{...item,[field]:value}:item)}));
@@ -35,7 +34,7 @@ export default function App({serverSession=null}){
  const removePosition=id=>setForm(current=>{const next=current.positions.filter(item=>item.id!==id);return{...current,positions:next.length?next:[blankPosition()]}});
  const movePosition=(id,direction)=>setForm(current=>{const index=current.positions.findIndex(item=>item.id===id),target=index+direction;if(index<0||target<0||target>=current.positions.length)return current;const next=[...current.positions];[next[index],next[target]]=[next[target],next[index]];return{...current,positions:next}});
 
- const persist=createNext=>{const customer=form.customer.trim(),title=form.title.trim();if(!customer||!title){setError('Заполните заказчика и предмет закупки.');return false}const now=new Date().toISOString(),id=form.id||makeId(),record={...form,id,customer,title,positions:(form.positions||[]).filter(item=>item.name||item.description||item.comment).map(item=>({...item,quantity:String(item.quantity||'1').trim()||'1',unit:String(item.unit||'шт.').trim()||'шт.'})),createdAt:form.createdAt||now,updatedAt:now};setData(current=>{const list=Array.isArray(current.requestsV1)?current.requestsV1:[],exists=list.some(item=>item.id===id);return{...current,requestsV1:exists?list.map(item=>item.id===id?record:item):[record,...list]}});try{localStorage.removeItem(DRAFT_KEY)}catch{}if(createNext){setForm(emptyForm());setNotice('Заявка сохранена. Можно вводить следующую.');focusCustomer()}else{setForm(normalizeForm(record));setNotice('Заявка сохранена.');setDraftSavedAt(new Date())}setError('');return true};
+ const persist=createNext=>{const customer=form.customer.trim(),title=form.title.trim();if(!customer||!title){setError('Заполните заказчика и предмет закупки.');return false}const now=new Date().toISOString(),id=form.id||makeId(),record={...form,id,customer,title,positions:(form.positions||[]).filter(item=>item.name||item.description||item.comment).map(item=>({...item,quantity:String(item.quantity||'1').trim()||'1',unit:String(item.unit||'шт.').trim()||'шт.'})),createdAt:form.createdAt||now,updatedAt:now};setData(current=>{const list=Array.isArray(current.requestsV1)?current.requestsV1:[],exists=list.some(item=>item.id===id);return{...current,requestsV1:exists?list.map(item=>item.id===id?record:item):[record,...list]}});try{localStorage.removeItem(DRAFT_KEY)}catch{}if(createNext){skipDraftRef.current=true;setForm(emptyForm());setNotice('Заявка сохранена. Можно вводить следующую.');focusCustomer()}else{skipDraftRef.current=true;setForm(normalizeForm(record));setNotice('Заявка сохранена.');setDraftSavedAt(new Date())}setError('');return true};
  const save=event=>{event.preventDefault();persist(false)};
  const hotkeys=event=>{if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();persist(false)}};
 
